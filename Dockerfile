@@ -6,11 +6,9 @@ RUN ./gradlew build --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine
 
-RUN apk add --no-cache tini
+RUN apk add --no-cache tini && mkdir -p /app/config /app/plugins /app/logs
 
 COPY --from=builder /build/build/libs/*.jar /app/ja-netfilter.jar
-COPY --from=builder /build/config /app/config/
-COPY --from=builder /build/plugins /app/plugins/
 
 WORKDIR /app
 
