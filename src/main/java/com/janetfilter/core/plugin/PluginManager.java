@@ -21,8 +21,8 @@ package com.janetfilter.core.plugin;
 import com.janetfilter.core.Dispatcher;
 import com.janetfilter.core.Environment;
 import com.janetfilter.core.commons.ConfigParser;
-import org.slf4j.LoggerFactory;
 import com.janetfilter.core.utils.StringUtils;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
@@ -90,7 +90,8 @@ public final class PluginManager {
         }
 
         int threadCount = Math.min(pluginFiles.length, 4);
-        try (ExecutorService executorService = Executors.newFixedThreadPool(threadCount)) {
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        try {
             List<Future<?>> futures = new ArrayList<>();
             for (File pluginFile : pluginFiles) {
                 futures.add(executorService.submit(new PluginLoadTask(pluginFile)));
