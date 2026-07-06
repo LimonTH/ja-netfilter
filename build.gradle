@@ -18,8 +18,8 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-def versionStr = project.findProperty('version') ?: '1.0-SNAPSHOT'
-def versionNumberInt = (project.findProperty('versionNumber') ?: '1000000') as long
+def versionStr = project.findProperty('version') ?: '0000.0.0'
+def versionNumber = (project.findProperty('versionNumber') ?: '1000000') as long
 def appNameStr = project.findProperty('appName') ?: 'ja-netfilter'
 
 version = versionStr
@@ -49,10 +49,10 @@ tasks.register("generateVersionFile") {
 """package com.janetfilter.core;
 
 public class BuildVersion {
-    public static final String VERSION = "2026.1.4";
+    public static final String VERSION = "${versionStr}";
     public static final String DEV_NAME = "LimonTH";
-    public static final long VERSION_NUMBER = 202601042L;
-    public static final String APP_NAME = "ja-netfilter";
+    public static final long VERSION_NUMBER = ${versionNumber};
+    public static final String APP_NAME = "${appNameStr}";
 
     public static String getVersion() {
         return VERSION;
