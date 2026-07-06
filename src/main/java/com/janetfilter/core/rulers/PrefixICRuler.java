@@ -18,6 +18,9 @@
 
 package com.janetfilter.core.rulers;
 
+/**
+ * Case-insensitive prefix matching ruler.
+ */
 public class PrefixICRuler implements Ruler {
     @Override
     public boolean test(String rule, String content) {

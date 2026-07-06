@@ -22,22 +22,56 @@ import com.janetfilter.core.Environment;
 
 import java.util.List;
 
+/**
+ * Plugin entry point interface.
+ */
 public interface PluginEntry {
+    /**
+     * Initialize the plugin.
+     *
+     * @param environment the environment context
+     * @param config the plugin configuration
+     */
     default void init(Environment environment, PluginConfig config) {
         // get plugin config
     }
 
+    /**
+     * Get the plugin name.
+     *
+     * @return the plugin name
+     */
     String getName();
 
+    /**
+     * Get the plugin author.
+     *
+     * @return the author name
+     */
     String getAuthor();
 
+    /**
+     * Get the plugin version.
+     *
+     * @return the version string
+     */
     default String getVersion() {
         return "v1.0.0";
     }
 
+    /**
+     * Get the plugin description.
+     *
+     * @return the description
+     */
     default String getDescription() {
         return "A ja-netfilter plugin.";
     }
 
+    /**
+     * Get the list of transformers provided by this plugin.
+     *
+     * @return list of transformers
+     */
     List<MyTransformer> getTransformers();
 }

@@ -16,14 +16,18 @@
  * along with this program.  If not, see <https://gnu.org>.
  */
 
-package com.janetfilter.core.rulers;
+package com.janetfilter.core.commons;
+
+import org.slf4j.LoggerFactory;
 
 /**
- * Case-insensitive keyword matching ruler.
+ * Utility for logging using SLF4J.
  */
-public class KeywordICRuler implements Ruler {
-    @Override
-    public boolean test(String rule, String content) {
-        return content.toLowerCase().contains(rule.toLowerCase());
+public final class Logger {
+    private Logger() {
+    }
+
+    public static org.slf4j.Logger getLogger(Class<?> clazz) {
+        return LoggerFactory.getLogger(clazz);
     }
 }

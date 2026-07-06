@@ -26,6 +26,9 @@ import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
 import java.util.*;
 
+/**
+ * Dispatches class file transformations to registered transformers.
+ */
 public final class Dispatcher implements ClassFileTransformer {
     private final Environment environment;
     private final Set<String> classSet = new TreeSet<>();
@@ -33,10 +36,20 @@ public final class Dispatcher implements ClassFileTransformer {
     private final List<MyTransformer> globalTransformers = new ArrayList<>();
     private final List<MyTransformer> manageTransformers = new ArrayList<>();
 
+    /**
+     * Create a new dispatcher.
+     *
+     * @param environment the environment context
+     */
     public Dispatcher(Environment environment) {
         this.environment = environment;
     }
 
+    /**
+     * Add a transformer to the dispatcher.
+     *
+     * @param transformer the transformer to add
+     */
     public void addTransformer(MyTransformer transformer) {
         if (null == transformer) {
             return;
@@ -71,6 +84,11 @@ public final class Dispatcher implements ClassFileTransformer {
         }
     }
 
+    /**
+     * Add multiple transformers from a list.
+     *
+     * @param transformers list of transformers to add
+     */
     public void addTransformers(List<MyTransformer> transformers) {
         if (null == transformers) {
             return;
@@ -81,6 +99,11 @@ public final class Dispatcher implements ClassFileTransformer {
         }
     }
 
+    /**
+     * Add multiple transformers from an array.
+     *
+     * @param transformers array of transformers to add
+     */
     public void addTransformers(MyTransformer[] transformers) {
         if (null == transformers) {
             return;
@@ -89,10 +112,26 @@ public final class Dispatcher implements ClassFileTransformer {
         addTransformers(Arrays.asList(transformers));
     }
 
+    /**
+     * Get the set of hooked class names.
+     *
+     * @return set of class names
+     */
     public Set<String> getHookClassNames() {
         return classSet;
     }
 
+    /**
+     * Transform the class file buffer.
+     *
+     * @param loader            the class loader
+     * @param className         the class name
+     * @param classBeingRedefined the class being redefined
+     * @param protectionDomain  the protection domain
+     * @param classFileBuffer   the class file buffer
+     * @return transformed class file buffer
+     * @throws IllegalClassFormatException if transformation fails
+     */
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classFileBuffer) throws IllegalClassFormatException {
         if (null == className) {
             return classFileBuffer;

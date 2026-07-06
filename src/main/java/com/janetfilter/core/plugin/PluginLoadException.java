@@ -16,14 +16,17 @@
  * along with this program.  If not, see <https://gnu.org>.
  */
 
-package com.janetfilter.core.rulers;
+package com.janetfilter.core.plugin;
 
 /**
- * Case-insensitive keyword matching ruler.
+ * Exception thrown when plugin loading errors occur.
  */
-public class KeywordICRuler implements Ruler {
-    @Override
-    public boolean test(String rule, String content) {
-        return content.toLowerCase().contains(rule.toLowerCase());
+public final class PluginLoadException extends Exception {
+    public PluginLoadException(String message) {
+        super(message);
+    }
+
+    public PluginLoadException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

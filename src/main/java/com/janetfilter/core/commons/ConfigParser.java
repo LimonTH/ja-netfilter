@@ -31,7 +31,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Parser for configuration files.
+ */
 public class ConfigParser {
+    /**
+     * Parse a configuration file.
+     *
+     * @param file the configuration file to parse
+     * @return map of section names to filter rules
+     * @throws Exception if parsing fails
+     */
     public static Map<String, List<FilterRule>> parse(File file) throws Exception {
         Map<String, List<FilterRule>> map = new HashMap<>();
 

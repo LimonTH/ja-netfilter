@@ -20,6 +20,9 @@ package com.janetfilter.core.rulers;
 
 import java.util.regex.Pattern;
 
+/**
+ * Regular expression matching ruler.
+ */
 public class RegExpRuler implements Ruler {
     @Override
     public boolean test(String rule, String content) {

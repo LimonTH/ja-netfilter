@@ -25,9 +25,20 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Process utilities for managing and redirecting process output.
+ */
 public class ProcessUtils {
+    /**
+     * Cached process ID.
+     */
     private static String processId;
 
+    /**
+     * Get the current process ID.
+     *
+     * @return the process ID
+     */
     public synchronized static String currentId() {
         if (null == processId) {
             String name = ManagementFactory.getRuntimeMXBean().getName() + "@";
@@ -38,14 +49,38 @@ public class ProcessUtils {
         return processId;
     }
 
+    /**
+     * Start a process with default output streams.
+     *
+     * @param pb the process builder
+     * @return the exit code
+     * @throws Exception if process fails
+     */
     public static int start(ProcessBuilder pb) throws Exception {
         return start(pb, System.out, System.err);
     }
 
+    /**
+     * Start a process with custom output stream.
+     *
+     * @param pb the process builder
+     * @param out the output stream
+     * @return the exit code
+     * @throws Exception if process fails
+     */
     public static int start(ProcessBuilder pb, OutputStream out) throws Exception {
         return start(pb, out, null);
     }
 
+    /**
+     * Start a process with custom output and error streams.
+     *
+     * @param pb the process builder
+     * @param out the output stream
+     * @param err the error stream
+     * @return the exit code
+     * @throws Exception if process fails
+     */
     public static int start(ProcessBuilder pb, OutputStream out, OutputStream err) throws Exception {
         Process p = pb.start();
 

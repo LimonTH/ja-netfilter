@@ -18,6 +18,9 @@
 
 package com.janetfilter.core.rulers;
 
+/**
+ * Ruler that matches content containing a keyword.
+ */
 public class KeywordRuler implements Ruler {
     @Override
     public boolean test(String rule, String content) {

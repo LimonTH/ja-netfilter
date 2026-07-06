@@ -18,6 +18,9 @@
 
 package com.janetfilter.core.rulers;
 
+/**
+ * Case-insensitive suffix matching ruler.
+ */
 public class SuffixICRuler implements Ruler {
     @Override
     public boolean test(String rule, String content) {

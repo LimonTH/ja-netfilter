@@ -18,46 +18,99 @@
 
 package com.janetfilter.core.attach;
 
+/**
+ * Descriptor for a Java Virtual Machine instance.
+ */
 public class VMDescriptor {
+    /**
+     * Process ID.
+     */
     private String id;
     private String className;
     private String args;
     private Boolean old = true;
 
+    /**
+     * Create a new VM descriptor.
+     *
+     * @param id the process ID
+     * @param className the main class name
+     * @param args the process arguments
+     */
     public VMDescriptor(String id, String className, String args) {
         this.id = id;
         this.className = className;
         this.args = args;
     }
 
+    /**
+     * Get the process ID.
+     *
+     * @return the process ID
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * Set the process ID.
+     *
+     * @param id the process ID
+     */
     public void setId(String id) {
         this.id = id;
     }
 
+    /**
+     * Get the main class name.
+     *
+     * @return the class name
+     */
     public String getClassName() {
         return className;
     }
 
+    /**
+     * Set the main class name.
+     *
+     * @param className the class name
+     */
     public void setClassName(String className) {
         this.className = className;
     }
 
+    /**
+     * Get the process arguments.
+     *
+     * @return the arguments
+     */
     public String getArgs() {
         return args;
     }
 
+    /**
+     * Set the process arguments.
+     *
+     * @param args the arguments
+     */
     public void setArgs(String args) {
         this.args = args;
     }
 
+    /**
+     * Check if this VM was present in the previous list.
+     *
+     * @return true if VM existed in previous list
+     */
     public Boolean getOld() {
         return old;
     }
 
+    /**
+     * Set whether this VM was present in the previous list.
+     *
+     * @param old true if existed in previous list
+     */
     public void setOld(Boolean old) {
         this.old = old;
     }

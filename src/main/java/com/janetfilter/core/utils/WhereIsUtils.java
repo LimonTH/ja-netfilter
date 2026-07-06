@@ -25,9 +25,20 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 
+/**
+ * Utilities for locating Java-related executables.
+ */
 public class WhereIsUtils {
+    /**
+     * Java home directory path.
+     */
     private static final String JAVA_HOME = System.getProperty("java.home");
 
+    /**
+     * Find the JPS executable.
+     *
+     * @return the JPS executable file, or null if not found
+     */
     public static File findJPS() {
         String[] paths = new String[]{"bin/jps", "bin/jps.exe", "../bin/jps", "../bin/jps.exe"};
 
@@ -41,6 +52,11 @@ public class WhereIsUtils {
         return null;
     }
 
+    /**
+     * Find the Java executable.
+     *
+     * @return the Java executable file, or null if not found
+     */
     public static File findJava() {
         String[] paths = new String[]{"bin/java", "bin/java.exe", "../bin/java", "../bin/java.exe"};
 
@@ -54,6 +70,11 @@ public class WhereIsUtils {
         return null;
     }
 
+    /**
+     * Find the tools.jar file.
+     *
+     * @return the tools.jar file, or null if not found
+     */
     public static File findToolsJar() {
         String[] paths = new String[]{"lib/tools.jar", "../lib/tools.jar", "../../lib/tools.jar"};
 
@@ -67,6 +88,12 @@ public class WhereIsUtils {
         return null;
     }
 
+    /**
+     * Get the URI of the agent JAR.
+     *
+     * @return the agent JAR URI
+     * @throws Exception if unable to locate the agent JAR
+     */
     public static URI getJarURI() throws Exception {
         URL url = Launcher.class.getProtectionDomain().getCodeSource().getLocation();
         if (null != url) {

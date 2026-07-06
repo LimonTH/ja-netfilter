@@ -29,7 +29,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Interactive VM selector for attaching the agent to running JVMs.
+ */
 public class VMSelector {
+    /**
+     * The agent JAR file.
+     */
     private final File thisJar;
     private List<VMDescriptor> descriptors;
 
@@ -37,6 +43,12 @@ public class VMSelector {
         this.thisJar = thisJar;
     }
 
+    /**
+     * Get the list of running JVMs.
+     *
+     * @return list of VM descriptors
+     * @throws Exception if JPS command fails
+     */
     private List<VMDescriptor> getVMList() throws Exception {
         File jpsCommand = WhereIsUtils.findJPS();
         if (null == jpsCommand) {
@@ -64,10 +76,21 @@ public class VMSelector {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get user input from console.
+     *
+     * @return the user input
+     * @throws IOException if input fails
+     */
     private String getInput() throws IOException {
         return new BufferedReader(new InputStreamReader(System.in)).readLine().trim();
     }
 
+    /**
+     * Process user selection input.
+     *
+     * @throws Exception if selection fails
+     */
     private void processSelect() throws Exception {
         System.out.print("  Select: ");
         String input = getInput();
@@ -106,7 +129,7 @@ public class VMSelector {
                 System.out.print("  Agent args: ");
                 input = getInput();
                 try {
-                    VMLauncher.launch(thisJar, descriptors.get(index - 1), input);
+                    VMLauncher.launch(thisJar, new File(descriptors.get(index - 1).getId()), input);
                 } catch (Exception e) {
                     System.err.println("> Attach to: " + index + " failed.");
                     e.printStackTrace(System.err);
@@ -116,11 +139,22 @@ public class VMSelector {
         }
     }
 
+    /**
+     * Handle invalid user input.
+     *
+     * @param input the invalid input
+     * @throws Exception if input handling fails
+     */
     private void invalidInput(String input) throws Exception {
         System.err.println("> Invalid input: " + input);
         processSelect();
     }
 
+    /**
+     * Start the VM selection process.
+     *
+     * @throws Exception if selection fails
+     */
     public void select() throws Exception {
         boolean first = null == descriptors;
         List<VMDescriptor> temp = getVMList();

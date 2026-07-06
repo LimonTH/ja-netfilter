@@ -24,7 +24,15 @@ import com.janetfilter.core.plugin.PluginManager;
 import java.lang.instrument.Instrumentation;
 import java.util.Set;
 
+/**
+ * Initializes the agent by loading plugins and setting up transformers.
+ */
 public class Initializer {
+    /**
+     * Initialize the agent.
+     *
+     * @param environment the environment context
+     */
     public static void init(Environment environment) {
         DebugInfo.useFile(environment.getLogsDir());
         DebugInfo.info(environment.toString());
@@ -44,7 +52,7 @@ public class Initializer {
             }
 
             try {
-                c.getGenericSuperclass();
+                Object ignore = c.getGenericSuperclass();
                 inst.retransformClasses(c);
             } catch (Throwable e) {
                 DebugInfo.error("Retransform class failed: " + name, e);

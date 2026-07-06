@@ -16,14 +16,27 @@
  * along with this program.  If not, see <https://gnu.org>.
  */
 
-package com.janetfilter.core.rulers;
+package com.janetfilter.core.commons;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Case-insensitive keyword matching ruler.
+ * Basic config validation.
  */
-public class KeywordICRuler implements Ruler {
-    @Override
-    public boolean test(String rule, String content) {
-        return content.toLowerCase().contains(rule.toLowerCase());
+public final class ConfigValidator {
+    private ConfigValidator() {
+    }
+
+    public static List<String> validate(File file) {
+        List<String> errors = new ArrayList<>();
+
+        if (!file.exists()) {
+            errors.add("Config file not found: " + file);
+            return errors;
+        }
+
+        return errors;
     }
 }

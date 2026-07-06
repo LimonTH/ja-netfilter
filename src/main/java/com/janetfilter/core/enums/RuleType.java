@@ -20,7 +20,13 @@ package com.janetfilter.core.enums;
 
 import com.janetfilter.core.rulers.*;
 
+/**
+ * Types of filter rules available.
+ */
 public enum RuleType {
+    /**
+     * Prefix matching rule.
+     */
     PREFIX(new PrefixRuler()),
     PREFIX_IC(new PrefixICRuler()),
     SUFFIX(new SuffixRuler()),
@@ -33,10 +39,20 @@ public enum RuleType {
 
     private final Ruler ruler;
 
-    RuleType(Ruler ruler) { // Lazy here. No lazy loading
+    /**
+     * Create a rule type with its ruler implementation.
+     *
+     * @param ruler the ruler implementation
+     */
+    RuleType(Ruler ruler) {
         this.ruler = ruler;
     }
 
+    /**
+     * Get the ruler implementation for this rule type.
+     *
+     * @return the ruler
+     */
     public Ruler getRuler() {
         return ruler;
     }

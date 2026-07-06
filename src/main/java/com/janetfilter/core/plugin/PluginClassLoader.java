@@ -21,21 +21,42 @@ package com.janetfilter.core.plugin;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
+/**
+ * Class loader for loading plugin classes from JAR files.
+ */
 public final class PluginClassLoader extends ClassLoader {
+    /**
+     * Plugin JAR file.
+     */
     private final JarFile jarFile;
+    private final Map<String, Class<?>> classCache = new ConcurrentHashMap<>();
 
+    /**
+     * Create a plugin class loader.
+     *
+     * @param jarFile the plugin JAR file
+     */
     public PluginClassLoader(JarFile jarFile) {
         this.jarFile = jarFile;
     }
 
     @Override
-    public Class<?> findClass(String name) throws ClassNotFoundException {
-        byte[] bytes = loadClassFromFile(name);
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        Class<?> cached = classCache.get(name);
+        if (null != cached) {
+            return cached;
+        }
 
-        return defineClass(name, bytes, 0, bytes.length);
+        byte[] bytes = loadClassFromFile(name);
+        Class<?> defined = defineClass(name, bytes, 0, bytes.length);
+        classCache.put(name, defined);
+
+        return defined;
     }
 
     private byte[] loadClassFromFile(String fileName) throws ClassNotFoundException {
@@ -46,8 +67,8 @@ public final class PluginClassLoader extends ClassLoader {
         }
 
         int length;
-        byte[] buffer = new byte[1024];
-        ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        ByteArrayOutputStream byteStream = new ByteArrayOutputStream((int) entry.getSize());
 
         try (InputStream is = jarFile.getInputStream(entry)) {
             while (-1 != (length = is.read(buffer))) {

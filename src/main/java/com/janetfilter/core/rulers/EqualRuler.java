@@ -18,6 +18,9 @@
 
 package com.janetfilter.core.rulers;
 
+/**
+ * Ruler that matches content exactly equal to the rule.
+ */
 public class EqualRuler implements Ruler {
     @Override
     public boolean test(String rule, String content) {

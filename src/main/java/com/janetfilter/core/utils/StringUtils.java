@@ -20,13 +20,31 @@ package com.janetfilter.core.utils;
 
 import java.util.Random;
 
+/**
+ * String manipulation utilities.
+ */
 public class StringUtils {
+    /**
+     * Characters allowed in generated method names.
+     */
     private static final String METHOD_NAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$_0123456789";
 
+    /**
+     * Check if a string is null or empty.
+     *
+     * @param str the string to check
+     * @return true if null or empty
+     */
     public static boolean isEmpty(String str) {
         return null == str || str.isEmpty();
     }
 
+    /**
+     * Generate a random method name of specified length.
+     *
+     * @param length the length of the name
+     * @return random method name
+     */
     public static String randomMethodName(int length) {
         int i = 0;
         if (i == length) {
@@ -44,6 +62,12 @@ public class StringUtils {
         return new String(buffer);
     }
 
+    /**
+     * Convert a string to a Long.
+     *
+     * @param val the string value
+     * @return the Long value, or null if invalid
+     */
     public static Long toLong(String val) {
         if (null == val) {
             return null;

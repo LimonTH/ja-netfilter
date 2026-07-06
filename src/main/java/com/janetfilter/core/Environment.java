@@ -24,6 +24,9 @@ import com.janetfilter.core.utils.StringUtils;
 import java.io.File;
 import java.lang.instrument.Instrumentation;
 
+/**
+ * Runtime environment configuration and context.
+ */
 public final class Environment {
     private final String pid;
     private final String version;
@@ -40,10 +43,25 @@ public final class Environment {
 
     private final Instrumentation instrumentation;
 
+    /**
+     * Create a new environment.
+     *
+     * @param instrumentation the instrumentation instance
+     * @param agentFile       the agent JAR file
+     * @param attachMode      true if in attach mode, false if in javaagent mode
+     */
     public Environment(Instrumentation instrumentation, File agentFile, boolean attachMode) {
         this(instrumentation, agentFile, null, attachMode);
     }
 
+    /**
+     * Create a new environment with app name.
+     *
+     * @param instrumentation the instrumentation instance
+     * @param agentFile       the agent JAR file
+     * @param app             the application name
+     * @param attachMode      true if in attach mode, false if in javaagent mode
+     */
     public Environment(Instrumentation instrumentation, File agentFile, String app, boolean attachMode) {
         this.instrumentation = instrumentation;
         this.agentFile = agentFile;
@@ -69,58 +87,128 @@ public final class Environment {
         this.attachMode = attachMode;
     }
 
+    /**
+     * Get the current process ID.
+     *
+     * @return process ID
+     */
     public String getPid() {
         return pid;
     }
 
+    /**
+     * Get the version string.
+     *
+     * @return version string
+     */
     public String getVersion() {
         return version;
     }
 
+    /**
+     * Get the version number.
+     *
+     * @return version number
+     */
     public long getVersionNumber() {
         return versionNumber;
     }
 
+    /**
+     * Get the application name.
+     *
+     * @return application name
+     */
     public String getAppName() {
         return appName;
     }
 
+    /**
+     * Get the base directory.
+     *
+     * @return base directory
+     */
     public File getBaseDir() {
         return baseDir;
     }
 
+    /**
+     * Get the agent JAR file.
+     *
+     * @return agent JAR file
+     */
     public File getAgentFile() {
         return agentFile;
     }
 
+    /**
+     * Get the configuration directory.
+     *
+     * @return configuration directory
+     */
     public File getConfigDir() {
         return configDir;
     }
 
+    /**
+     * Get the plugins directory.
+     *
+     * @return plugins directory
+     */
     public File getPluginsDir() {
         return pluginsDir;
     }
 
+    /**
+     * Get the logs directory.
+     *
+     * @return logs directory
+     */
     public File getLogsDir() {
         return logsDir;
     }
 
+    /**
+     * Get the native method prefix.
+     *
+     * @return native method prefix
+     */
     public String getNativePrefix() {
         return nativePrefix;
     }
 
+    /**
+     * Get the disabled plugin suffix.
+     *
+     * @return disabled plugin suffix
+     */
     public String getDisabledPluginSuffix() {
         return disabledPluginSuffix;
     }
 
+    /**
+     * Check if running in attach mode.
+     *
+     * @return true if in attach mode
+     */
     public boolean isAttachMode() {
         return attachMode;
     }
 
+    /**
+     * Check if running in javaagent mode.
+     *
+     * @return true if in javaagent mode
+     */
     public boolean isJavaagentMode() {
         return !attachMode;
     }
 
+    /**
+     * Get the instrumentation instance.
+     *
+     * @return instrumentation instance
+     */
     public Instrumentation getInstrumentation() {
         return instrumentation;
     }

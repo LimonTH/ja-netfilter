@@ -23,7 +23,13 @@ import com.janetfilter.core.enums.RuleType;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Represents a filter rule with type and content.
+ */
 public class FilterRule {
+    /**
+     * Map of supported rule types.
+     */
     private static final Map<String, RuleType> SUPPORTED_TYPE_MAP;
 
     static {
@@ -37,11 +43,24 @@ public class FilterRule {
     private RuleType type;
     private String rule;
 
+    /**
+     * Create a new filter rule.
+     *
+     * @param type the rule type
+     * @param rule the rule content
+     */
     public FilterRule(RuleType type, String rule) {
         this.type = type;
         this.rule = rule;
     }
 
+    /**
+     * Create a filter rule from a type string and content.
+     *
+     * @param typeStr the rule type string
+     * @param content the rule content
+     * @return the filter rule, or null if type is invalid
+     */
     public static FilterRule of(String typeStr, String content) {
         RuleType type = SUPPORTED_TYPE_MAP.get(typeStr.toUpperCase());
         if (null == type) {
@@ -51,22 +70,48 @@ public class FilterRule {
         return new FilterRule(type, content);
     }
 
+    /**
+     * Get the rule type.
+     *
+     * @return the rule type
+     */
     public RuleType getType() {
         return type;
     }
 
+    /**
+     * Set the rule type.
+     *
+     * @param type the rule type
+     */
     public void setType(RuleType type) {
         this.type = type;
     }
 
+    /**
+     * Get the rule content.
+     *
+     * @return the rule content
+     */
     public String getRule() {
         return rule;
     }
 
+    /**
+     * Set the rule content.
+     *
+     * @param rule the rule content
+     */
     public void setRule(String rule) {
         this.rule = rule;
     }
 
+    /**
+     * Test if the content matches the rule.
+     *
+     * @param content the content to test
+     * @return true if the rule matches
+     */
     public boolean test(String content) {
         return type.getRuler().test(this.rule, content);
     }

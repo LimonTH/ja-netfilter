@@ -21,28 +21,37 @@ package com.janetfilter.core.commons;
 import com.janetfilter.core.utils.DateUtils;
 import com.janetfilter.core.utils.ProcessUtils;
 import com.janetfilter.core.utils.StringUtils;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.Date;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
+/**
+ * Debug and logging utility for console and file output.
+ */
 public class DebugInfo {
+    /**
+     * Output to console flag.
+     */
     public static final long OUTPUT_CONSOLE = 0x1L;
+    /**
+     * Output to file flag.
+     */
     public static final long OUTPUT_FILE = 0x2L;
+    /**
+     * Include PID in output flag.
+     */
     public static final long OUTPUT_WITH_PID = 0x4L;
 
-    private static final ExecutorService CONSOLE_EXECUTOR = Executors.newSingleThreadExecutor();
-    private static final ExecutorService FILE_EXECUTOR = Executors.newSingleThreadExecutor();
     private static final String CLASS_NAME = DebugInfo.class.getName();
     private static final String LOG_TEMPLATE = "%s %-5s [%s@%-5s] %s-%d : %s%n";
     private static final String PID = ProcessUtils.currentId();
     private static final Level LOG_LEVEL;
     private static final Long LOG_OUTPUT;
-
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(DebugInfo.class);
     private static File logDir;
 
     static {
@@ -54,8 +63,17 @@ public class DebugInfo {
             output = StringUtils.toLong(System.getenv("JANF_OUTPUT"));
         }
         LOG_OUTPUT = null == output ? OUTPUT_CONSOLE : output;
+
+        if (Level.NONE != LOG_LEVEL && 0 != (LOG_OUTPUT & OUTPUT_FILE) && null != logDir) {
+            System.setProperty("janetfilter.logs.dir", logDir.getAbsolutePath());
+        }
     }
 
+    /**
+     * Set the log directory for file output.
+     *
+     * @param dir the log directory
+     */
     public static void useFile(File dir) {
         if (Level.NONE == LOG_LEVEL || 0 == (LOG_OUTPUT & OUTPUT_FILE) || null == dir) {
             return;
@@ -79,65 +97,142 @@ public class DebugInfo {
         logDir = dir;
     }
 
+    /**
+     * Get the current log level.
+     *
+     * @return the log level
+     */
     public static Level getLogLevel() {
         return LOG_LEVEL;
     }
 
+    /**
+     * Get the log output configuration.
+     *
+     * @return the log output flags
+     */
     public static long getLogOutput() {
         return LOG_OUTPUT;
     }
 
+    /**
+     * Output debug message.
+     *
+     * @param content the message content
+     * @param e       the throwable (may be null)
+     */
     public static void debug(String content, Throwable e) {
         output(Level.DEBUG, content, e);
     }
 
+    /**
+     * Output debug message.
+     *
+     * @param content the message content
+     */
     public static void debug(String content) {
         debug(content, null);
     }
 
+    /**
+     * Output info message.
+     *
+     * @param content the message content
+     * @param e       the throwable (may be null)
+     */
     public static void info(String content, Throwable e) {
         output(Level.INFO, content, e);
     }
 
+    /**
+     * Output info message.
+     *
+     * @param content the message content
+     */
     public static void info(String content) {
         info(content, null);
     }
 
+    /**
+     * Output warning message.
+     *
+     * @param content the message content
+     * @param e       the throwable (may be null)
+     */
     public static void warn(String content, Throwable e) {
         output(Level.WARN, content, e);
     }
 
+    /**
+     * Output warning message.
+     *
+     * @param content the message content
+     */
     public static void warn(String content) {
         warn(content, null);
     }
 
+    /**
+     * Output error message.
+     *
+     * @param content the message content
+     * @param e       the throwable (may be null)
+     */
     public static void error(String content, Throwable e) {
         output(Level.ERROR, content, e);
     }
 
+    /**
+     * Output error message.
+     *
+     * @param content the message content
+     */
     public static void error(String content) {
         error(content, null);
     }
 
+    /**
+     * Output message at default level.
+     *
+     * @param content the message content
+     */
     public static void output(String content) {
         debug(content);
     }
 
-    public static void output(String content, Throwable e) { // No logger lib required
+    /**
+     * Output message at default level.
+     *
+     * @param content the message content
+     * @param e       the throwable (may be null)
+     */
+    public static void output(String content, Throwable e) {
         debug(content, e);
     }
 
-    public static void output(Level level, String content, Throwable e) { // No logger lib required
+    /**
+     * Output message at specified level.
+     *
+     * @param level   the log level
+     * @param content the message content
+     * @param e       the throwable (may be null)
+     */
+    public static void output(Level level, String content, Throwable e) {
         if (Level.NONE == LOG_LEVEL || level.ordinal() < LOG_LEVEL.ordinal()) {
             return;
         }
 
-        if (0 != (LOG_OUTPUT & OUTPUT_CONSOLE)) {
-            CONSOLE_EXECUTOR.execute(new ConsoleWriteTask(PID, level, content, e));
+        if (0 == LOG_OUTPUT) {
+            return;
         }
 
-        if (null != logDir) {
-            FILE_EXECUTOR.execute(new FileWriteTask(logDir, PID, level, content, e));
+        switch (level) {
+            case DEBUG -> LOG.debug(content, e);
+            case INFO -> LOG.info(content, e);
+            case WARN -> LOG.warn(content, e);
+            case ERROR -> LOG.error(content, e);
+            default -> {
+            }
         }
     }
 
@@ -145,14 +240,14 @@ public class DebugInfo {
         NONE, DEBUG, INFO, WARN, ERROR;
 
         public static Level of(String valueStr) {
-            if (null == valueStr) {
+            if (null == valueStr || valueStr.isEmpty()) {
                 return NONE;
             }
 
             int value;
             try {
                 value = Integer.parseInt(valueStr);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException ex) {
                 return NONE;
             }
 

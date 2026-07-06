@@ -18,6 +18,9 @@
 
 package com.janetfilter.core.rulers;
 
+/**
+ * Ruler that matches content ending with a suffix.
+ */
 public class SuffixRuler implements Ruler {
     @Override
     public boolean test(String rule, String content) {

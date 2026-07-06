@@ -18,7 +18,17 @@
 
 package com.janetfilter.core.rulers;
 
+/**
+ * Interface for testing content against rules.
+ */
 public interface Ruler {
+    /**
+     * Test if the content matches the rule.
+     *
+     * @param rule the rule pattern
+     * @param content the content to test
+     * @return true if the rule matches
+     */
     default boolean test(String rule, String content) {
         return false;
     }

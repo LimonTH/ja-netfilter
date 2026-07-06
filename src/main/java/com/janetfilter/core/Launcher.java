@@ -18,101 +18,82 @@
 
 package com.janetfilter.core;
 
-import com.janetfilter.core.attach.VMLauncher;
 import com.janetfilter.core.attach.VMSelector;
 import com.janetfilter.core.commons.DebugInfo;
-import com.janetfilter.core.utils.WhereIsUtils;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
-import java.net.URI;
-import java.util.jar.JarFile;
 
+/**
+ * Entry point for the ja-netfilter agent.
+ */
 public class Launcher {
-    public static final String ATTACH_ARG = "--attach";
-
-    private static boolean loaded = false;
-
+    /**
+     * Main method for launching the agent in attach mode.
+     *
+     * @param args command line arguments
+     */
     static void main(String[] args) {
-        URI jarURI;
-        try {
-            jarURI = WhereIsUtils.getJarURI();
-        } catch (Throwable e) {
-            DebugInfo.error("Can not locate `" + BuildVersion.getAppName() + "` jar file.", e);
-            return;
+        if (null != args && args.length > 0) {
+            if (args[0].equalsIgnoreCase("--version") || args[0].equalsIgnoreCase("-v")) {
+                System.out.println(BuildVersion.getAppName() + " " + BuildVersion.getVersion());
+                System.out.println("Dev: " + BuildVersion.getDevName());
+                System.out.println("Version number: " + BuildVersion.getVersionNumber());
+                return;
+            }
         }
 
-        String jarPath = jarURI.getPath();
-        if (args.length > 1 && args[0].equals(ATTACH_ARG)) {
-            VMLauncher.attachVM(jarPath, args[1], args.length > 2 ? args[2] : null);
-            return;
-        }
-
-        printUsage();
-
         try {
-            new VMSelector(new File(jarPath)).select();
-        } catch (Throwable e) {
-            System.err.println("  ERROR: Select virtual machine failed.");
-            e.printStackTrace(System.err);
+            File agentJar = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+            new VMSelector(agentJar).select();
+        } catch (Exception e) {
+            DebugInfo.error("Launcher main failed", e);
+            System.exit(1);
         }
     }
 
-    public static void premain(String args, Instrumentation inst) {
-        premain(args, inst, false);
+    /**
+     * premain method for -javaagent mode.
+     *
+     * @param agentArgs agent arguments
+     * @param inst      instrumentation instance
+     */
+    public static void premain(String agentArgs, Instrumentation inst) {
+        run(agentArgs, inst, false);
     }
 
-    public static void agentmain(String args, Instrumentation inst) {
-        if (null == System.getProperty("janf.debug")) {
-            System.setProperty("janf.debug", "1");
-        }
-
-        if (null == System.getProperty("janf.output")) {
-            System.setProperty("janf.output", "3");
-        }
-
-        premain(args, inst, true);
+    /**
+     * agentmain method for attach mode.
+     *
+     * @param agentArgs agent arguments
+     * @param inst      instrumentation instance
+     */
+    public static void agentmain(String agentArgs, Instrumentation inst) {
+        run(agentArgs, inst, true);
     }
 
-    private static void premain(String args, Instrumentation inst, boolean attachMode) {
-        if (loaded) {
-            DebugInfo.warn("You have multiple `" + BuildVersion.getAppName() + "` as javaagent.");
+    /**
+     * Run the agent initialization.
+     *
+     * @param agentArgs agent arguments
+     * @param inst      instrumentation instance
+     * @param attachMode true if in attach mode, false if in javaagent mode
+     */
+    private static void run(String agentArgs, Instrumentation inst, boolean attachMode) {
+        if (null != agentArgs && (agentArgs.equalsIgnoreCase("--version") || agentArgs.equalsIgnoreCase("-v"))) {
+            System.out.println(BuildVersion.getAppName() + " " + BuildVersion.getVersion());
+            System.out.println("Dev: " + BuildVersion.getDevName());
+            System.out.println("Version number: " + BuildVersion.getVersionNumber());
             return;
         }
 
-        printUsage();
+        DebugInfo.output("========================================");
+        DebugInfo.output(BuildVersion.getAppName() + " " + BuildVersion.getVersion());
+        DebugInfo.output("Dev: " + BuildVersion.getDevName());
+        DebugInfo.output("Mode: " + (attachMode ? "attach" : "premain"));
+        DebugInfo.output("========================================");
 
-        URI jarURI;
-        try {
-            loaded = true;
-            jarURI = WhereIsUtils.getJarURI();
-        } catch (Throwable e) {
-            DebugInfo.error("Can not locate `" + BuildVersion.getAppName() + "` jar file.", e);
-            return;
-        }
-
-        File agentFile = new File(jarURI.getPath());
-        try {
-            inst.appendToBootstrapClassLoaderSearch(new JarFile(agentFile));
-        } catch (Throwable e) {
-            DebugInfo.error("Can not access `" + BuildVersion.getAppName() + "` jar file.", e);
-            return;
-        }
-
-        Initializer.init(new Environment(inst, agentFile, args, attachMode)); // for some custom UrlLoaders
-    }
-
-    private static void printUsage() {
-        String content = "\n  ============================================================================  \n" +
-                "\n" +
-                "    " + BuildVersion.getAppName() + " " + BuildVersion.getVersion() +
-                "\n\n" +
-                "    A javaagent framework :)\n" +
-                "\n" +
-                "    https://github.com/" + BuildVersion.getDevName() + "/" + BuildVersion.getAppName() + "\n" +
-                "\n" +
-                "  ============================================================================  \n\n";
-
-        System.out.print(content);
+        Environment environment = new Environment(inst, new java.io.File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile()), attachMode);
+        Initializer.init(environment);
     }
 }

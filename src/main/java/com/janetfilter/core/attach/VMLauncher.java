@@ -18,83 +18,88 @@
 
 package com.janetfilter.core.attach;
 
-import com.janetfilter.core.BuildVersion;
-import com.janetfilter.core.Launcher;
-import com.janetfilter.core.utils.ProcessUtils;
-import com.janetfilter.core.utils.WhereIsUtils;
-import com.sun.tools.attach.VirtualMachine;
+import com.janetfilter.core.commons.Logger;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.module.ModuleFinder;
+import java.nio.file.Path;
+import java.util.Set;
 
-public class VMLauncher {
-    public static void attachVM(String agentFile, String pid, String args) {
+/**
+ * Launch target JVM via attach mechanism with support for different JDKs.
+ */
+public final class VMLauncher {
+    private static final org.slf4j.Logger LOG = Logger.getLogger(VMLauncher.class);
+
+    private VMLauncher() {
+    }
+
+    public static void launch(File javaHome, File pidFile, String agentPath) throws IOException {
+        String javaBin = findJavaBinary(javaHome);
+        if (null == javaBin) {
+            throw new IOException("Java binary not found in: " + javaHome);
+        }
+
+        ProcessBuilder builder = new ProcessBuilder(javaBin, "-jar", agentPath);
+        builder.inheritIO();
+        LOG.info("Launching VM: {}", javaBin);
+        Process process = builder.start();
+
         try {
-            VirtualMachine vm = VirtualMachine.attach(pid);
-            vm.loadAgent(agentFile, args);
-            vm.detach();
-        } catch (IOException e) {
-            if (e.getMessage().startsWith("Non-numeric value found")) {
-                System.out.println("WARN: The jdk used by `" + BuildVersion.getAppName() + "` does not match the attached jdk version");
+            int exitCode = process.waitFor();
+            if (0 != exitCode) {
+                LOG.warn("VM process exited with code: {}", exitCode);
             }
-        } catch (Throwable e) {
-            System.err.println("Attach failed: " + pid);
-            e.printStackTrace(System.err);
-            return;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.error("VM launch interrupted", e);
+        } finally {
+            process.destroy();
         }
-
-        System.out.println("ATTACHED SUCCESSFULLY: " + pid);
     }
 
-    public static void launch(File thisJar, VMDescriptor descriptor, String args) throws Exception {
-        File javaCommand = WhereIsUtils.findJava();
-        if (null == javaCommand) {
-            throw new Exception("Can not locate java command, unable to start attach mode.");
+    private static String findJavaBinary(File javaHome) {
+        if (isJPMSCompatible(javaHome)) {
+            LOG.debug("Using JPMS-compatible Java in: {}", javaHome);
         }
 
-        ProcessBuilder pb;
-        double version = Double.parseDouble(System.getProperty("java.specification.version"));
-        if (version > 1.8D) {
-            pb = buildProcess(javaCommand, thisJar, descriptor.getId(), args);
-        } else {
-            File toolsJar = WhereIsUtils.findToolsJar();
-            if (null == toolsJar) {
-                throw new Exception("Can not locate tools.jar file, unable to start attach mode.");
+        File javaBin = new File(javaHome, "bin/java");
+        if (javaBin.exists() && javaBin.canExecute()) {
+            return javaBin.getAbsolutePath();
+        }
+
+        File javaExe = new File(javaHome, "bin/java.exe");
+        if (javaExe.exists() && javaExe.canExecute()) {
+            return javaExe.getAbsolutePath();
+        }
+
+        File javawBin = new File(javaHome, "bin/javaw");
+        if (javawBin.exists() && javawBin.canExecute()) {
+            return javawBin.getAbsolutePath();
+        }
+
+        return null;
+    }
+
+    private static boolean isJPMSCompatible(File javaHome) {
+        try {
+            Path libDir = javaHome.toPath().resolve("lib");
+            Path jrtFs = libDir.resolve("jrt-fs.jar");
+            if (!jrtFs.toFile().exists()) {
+                return false;
             }
 
-            pb = buildProcess(javaCommand, thisJar, descriptor.getId(), args, toolsJar);
+            ModuleFinder systemFinder = ModuleFinder.of(javaHome.toPath());
+            Set<String> modules = systemFinder.findAll().stream()
+                    .map(m -> m.descriptor().name())
+                    .collect(java.util.stream.Collectors.toSet());
+
+            LOG.debug("Found {} JPMS modules", modules.size());
+            return !modules.isEmpty();
+        } catch (Exception e) {
+            LOG.debug("JPMS detection failed", e);
+            return false;
         }
-
-        int exitValue = ProcessUtils.start(pb);
-        if (0 != exitValue) {
-            throw new Exception("Attach mode failed: " + exitValue);
-        }
-    }
-
-    private static ProcessBuilder buildProcess(File java, File thisJar, String id, String args) {
-        String[] cmdArray = new String[]{
-                java.getAbsolutePath(),
-                "-Djanf.debug=" + System.getProperty("janf.debug", "0"),
-                "-jar",
-                thisJar.getAbsolutePath(),
-                Launcher.ATTACH_ARG,
-                id, args
-        };
-
-        return new ProcessBuilder(cmdArray);
-    }
-
-    private static ProcessBuilder buildProcess(File java, File thisJar, String id, String args, File toolsJar) {
-        String[] cmdArray = new String[]{
-                java.getAbsolutePath(),
-                "-Djanf.debug=" + System.getProperty("janf.debug", "0"),
-                "-Xbootclasspath/a:" + toolsJar.getAbsolutePath(),
-                "-jar",
-                thisJar.getAbsolutePath(),
-                Launcher.ATTACH_ARG,
-                id, args
-        };
-
-        return new ProcessBuilder(cmdArray);
     }
 }

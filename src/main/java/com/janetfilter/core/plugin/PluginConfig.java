@@ -25,8 +25,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Plugin configuration record.
+ */
 public record PluginConfig(File file, Map<String, List<FilterRule>> data) {
 
+    /**
+     * Get filter rules by section name.
+     *
+     * @param section the section name
+     * @return list of filter rules
+     */
     public List<FilterRule> getBySection(String section) {
         return data.getOrDefault(section, new ArrayList<>());
     }

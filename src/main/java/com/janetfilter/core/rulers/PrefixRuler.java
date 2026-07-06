@@ -18,6 +18,9 @@
 
 package com.janetfilter.core.rulers;
 
+/**
+ * Ruler that matches content starting with a prefix.
+ */
 public class PrefixRuler implements Ruler {
     @Override
     public boolean test(String rule, String content) {
