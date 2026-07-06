@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        java: [ 17, 21, 24, 25, 26 ]
+        java: [ 17, 18, 19, 20, 21, 22, 23, 24, 25, 26 ]
 
     steps:
       - uses: actions/checkout@v7
