@@ -18,88 +18,59 @@
 
 package com.janetfilter.core.attach;
 
-import com.janetfilter.core.commons.Logger;
+import com.janetfilter.core.utils.WhereIsUtils;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.module.ModuleFinder;
-import java.nio.file.Path;
-import java.util.Set;
 
 /**
  * Launch target JVM via attach mechanism with support for different JDKs.
  */
 public final class VMLauncher {
-    private static final org.slf4j.Logger LOG = Logger.getLogger(VMLauncher.class);
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(VMLauncher.class);
 
     private VMLauncher() {
     }
 
-    public static void launch(File javaHome, File pidFile, String agentPath) throws IOException {
-        String javaBin = findJavaBinary(javaHome);
+    /**
+     * Launch the agent to attach to a target JVM process.
+     *
+     * @param agentJar  the agent JAR file to deploy
+     * @param targetPid the target process ID to attach to
+     * @param agentArgs arguments to pass to the agent
+     * @throws IOException if the Java process cannot be started
+     */
+    public static void launch(File agentJar, String targetPid, String agentArgs) throws IOException {
+        File javaBin = WhereIsUtils.findJava();
         if (null == javaBin) {
-            throw new IOException("Java binary not found in: " + javaHome);
+            throw new IOException("Java binary not found");
         }
 
-        ProcessBuilder builder = new ProcessBuilder(javaBin, "-jar", agentPath);
+        ProcessBuilder builder = new ProcessBuilder(
+                javaBin.getAbsolutePath(),
+                "-jar", agentJar.getAbsolutePath(),
+                targetPid
+        );
+
+        if (null != agentArgs && !agentArgs.isEmpty()) {
+            builder.command().add(agentArgs);
+        }
+
         builder.inheritIO();
-        LOG.info("Launching VM: {}", javaBin);
+        LOG.info("Launching agent for PID {}: {}", targetPid, javaBin);
         Process process = builder.start();
 
         try {
             int exitCode = process.waitFor();
             if (0 != exitCode) {
-                LOG.warn("VM process exited with code: {}", exitCode);
+                LOG.warn("Agent process exited with code: {}", exitCode);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOG.error("VM launch interrupted", e);
+            LOG.error("Agent launch interrupted", e);
         } finally {
             process.destroy();
-        }
-    }
-
-    private static String findJavaBinary(File javaHome) {
-        if (isJPMSCompatible(javaHome)) {
-            LOG.debug("Using JPMS-compatible Java in: {}", javaHome);
-        }
-
-        File javaBin = new File(javaHome, "bin/java");
-        if (javaBin.exists() && javaBin.canExecute()) {
-            return javaBin.getAbsolutePath();
-        }
-
-        File javaExe = new File(javaHome, "bin/java.exe");
-        if (javaExe.exists() && javaExe.canExecute()) {
-            return javaExe.getAbsolutePath();
-        }
-
-        File javawBin = new File(javaHome, "bin/javaw");
-        if (javawBin.exists() && javawBin.canExecute()) {
-            return javawBin.getAbsolutePath();
-        }
-
-        return null;
-    }
-
-    private static boolean isJPMSCompatible(File javaHome) {
-        try {
-            Path libDir = javaHome.toPath().resolve("lib");
-            Path jrtFs = libDir.resolve("jrt-fs.jar");
-            if (!jrtFs.toFile().exists()) {
-                return false;
-            }
-
-            ModuleFinder systemFinder = ModuleFinder.of(javaHome.toPath());
-            Set<String> modules = systemFinder.findAll().stream()
-                    .map(m -> m.descriptor().name())
-                    .collect(java.util.stream.Collectors.toSet());
-
-            LOG.debug("Found {} JPMS modules", modules.size());
-            return !modules.isEmpty();
-        } catch (Exception e) {
-            LOG.debug("JPMS detection failed", e);
-            return false;
         }
     }
 }

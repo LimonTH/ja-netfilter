@@ -23,9 +23,9 @@ import com.janetfilter.core.utils.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +49,24 @@ public class ConfigParser {
             return map;
         }
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+        // Read file content
+        byte[] content = Files.readAllBytes(Paths.get(file.toURI()));
+        String contentStr = new String(content, StandardCharsets.UTF_8).trim();
+
+        // Check if the config file is encrypted
+        byte[] key = ConfigCipher.getKey();
+        if (null != key && contentStr.startsWith("ENC:")) {
+            String encryptedData = contentStr.substring(4).trim();
+            try {
+                contentStr = ConfigCipher.decrypt(encryptedData, key);
+                DebugInfo.debug("Decrypted config file: " + file);
+            } catch (Exception e) {
+                DebugInfo.error("Failed to decrypt config file: " + file, e);
+                return map;
+            }
+        }
+
+        try (BufferedReader reader = new BufferedReader(new java.io.StringReader(contentStr))) {
             int lineNumber = 0;
             String line, lastSection = null;
 
@@ -64,12 +81,12 @@ public class ConfigParser {
                 switch (line.charAt(0)) {
                     case '[':
                         if (']' != line.charAt(len - 1)) {
-                            throw new Exception("Invalid section! Line: " + lineNumber);
+                            throw new Exception("Invalid section in " + file.getName() + "! Line: " + lineNumber);
                         }
 
                         String section = line.substring(1, len - 1);
                         if (StringUtils.isEmpty(section)) {
-                            throw new Exception("Empty section name! Line: " + lineNumber);
+                            throw new Exception("Empty section name in " + file.getName() + "! Line: " + lineNumber);
                         }
 
                         map.computeIfAbsent(lastSection = section, k -> new ArrayList<>());
@@ -81,7 +98,7 @@ public class ConfigParser {
                         if (len > 1 && '/' == line.charAt(1)) {
                             break;  // comment
                         }
-                        throw new Exception("Invalid character! Line: " + lineNumber);
+                        throw new Exception("Invalid character in " + file.getName() + "! Line: " + lineNumber);
                     default:
                         if (null == lastSection) {
                             break;  // ignore rules without section
@@ -89,22 +106,22 @@ public class ConfigParser {
 
                         String[] parts = line.split(",", 2);
                         if (2 != parts.length) {
-                            throw new Exception("Invalid rule! Line: " + lineNumber);
+                            throw new Exception("Invalid rule in " + file.getName() + "! Line: " + lineNumber);
                         }
 
                         String type = parts[0].trim();
-                        String content = parts[1].trim();
-                        if (StringUtils.isEmpty(type) || StringUtils.isEmpty(content)) {
-                            throw new Exception("Invalid rule! Line: " + lineNumber);
+                        String ruleContent = parts[1].trim();
+                        if (StringUtils.isEmpty(type) || StringUtils.isEmpty(ruleContent)) {
+                            throw new Exception("Invalid rule in " + file.getName() + "! Line: " + lineNumber);
                         }
 
                         if (!Character.isAlphabetic(type.charAt(0))) {
-                            throw new Exception("Invalid rule! Line: " + lineNumber);
+                            throw new Exception("Invalid rule in " + file.getName() + "! Line: " + lineNumber);
                         }
 
-                        FilterRule rule = FilterRule.of(type, content);
+                        FilterRule rule = FilterRule.of(type, ruleContent);
                         if (null == rule) {
-                            throw new Exception("Invalid rule type! Line: " + lineNumber);
+                            throw new Exception("Invalid rule type in " + file.getName() + "! Line: " + lineNumber);
                         }
 
                         map.get(lastSection).add(rule);

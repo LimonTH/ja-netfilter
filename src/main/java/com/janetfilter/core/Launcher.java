@@ -18,6 +18,7 @@
 
 package com.janetfilter.core;
 
+import com.janetfilter.core.attach.VMLauncher;
 import com.janetfilter.core.attach.VMSelector;
 import com.janetfilter.core.commons.DebugInfo;
 
@@ -30,15 +31,51 @@ import java.lang.instrument.Instrumentation;
 public class Launcher {
     /**
      * Main method for launching the agent in attach mode.
+     * <p>
+     * Supports the following command line arguments:
+     * <ul>
+     *   <li>{@code --version} or {@code -v} — Display version information</li>
+     *   <li>{@code --attach <pid>} — Attach to a specific JVM process by PID (non-interactive)</li>
+     *   <li>{@code <pid>} — Attach to a specific JVM process by PID (shorthand, digits only)</li>
+     *   <li><i>(no arguments)</i> — Interactive mode: display a list of running JVMs to choose from</li>
+     * </ul>
      *
      * @param args command line arguments
      */
     static void main(String[] args) {
         if (null != args && args.length > 0) {
-            if (args[0].equalsIgnoreCase("--version") || args[0].equalsIgnoreCase("-v")) {
+            String first = args[0];
+            if (first.equalsIgnoreCase("--version") || first.equalsIgnoreCase("-v")) {
                 System.out.println(BuildVersion.getAppName() + " " + BuildVersion.getVersion());
                 System.out.println("Dev: " + BuildVersion.getDevName());
                 System.out.println("Version number: " + BuildVersion.getVersionNumber());
+                return;
+            }
+
+            // Non-interactive attach mode: java -jar ja-netfilter.jar --attach <pid>
+            if (first.equalsIgnoreCase("--attach") && args.length > 1) {
+                try {
+                    File agentJar = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+                    String targetPid = args[1];
+                    String agentArgs = args.length > 2 ? args[2] : "";
+                    VMLauncher.launch(agentJar, targetPid, agentArgs);
+                } catch (Exception e) {
+                    DebugInfo.error("Attach failed", e);
+                    System.exit(1);
+                }
+                return;
+            }
+
+            // If first argument looks like a PID (digits only), treat as direct attach
+            if (first.matches("\\d+")) {
+                try {
+                    File agentJar = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+                    String agentArgs = args.length > 1 ? args[1] : "";
+                    VMLauncher.launch(agentJar, first, agentArgs);
+                } catch (Exception e) {
+                    DebugInfo.error("Attach failed", e);
+                    System.exit(1);
+                }
                 return;
             }
         }

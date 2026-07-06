@@ -129,7 +129,7 @@ public class VMSelector {
                 System.out.print("  Agent args: ");
                 input = getInput();
                 try {
-                    VMLauncher.launch(thisJar, new File(descriptors.get(index - 1).getId()), input);
+                    VMLauncher.launch(thisJar, descriptors.get(index - 1).getId(), input);
                 } catch (Exception e) {
                     System.err.println("> Attach to: " + index + " failed.");
                     e.printStackTrace(System.err);

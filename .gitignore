@@ -4,7 +4,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 .kotlin
-TODO
+logs
 
 ### IntelliJ IDEA ###
 .idea

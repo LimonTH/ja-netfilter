@@ -21,7 +21,7 @@ package com.janetfilter.core.plugin;
 import com.janetfilter.core.Dispatcher;
 import com.janetfilter.core.Environment;
 import com.janetfilter.core.commons.ConfigParser;
-import com.janetfilter.core.commons.Logger;
+import org.slf4j.LoggerFactory;
 import com.janetfilter.core.utils.StringUtils;
 
 import java.io.File;
@@ -44,7 +44,7 @@ public final class PluginManager {
      * Plugin entry point attribute name in manifest.
      */
     private static final String ENTRY_NAME = "JANF-Plugin-Entry";
-    private static final org.slf4j.Logger LOG = Logger.getLogger(PluginManager.class);
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(PluginManager.class);
 
     private final Instrumentation inst;
     private final Dispatcher dispatcher;

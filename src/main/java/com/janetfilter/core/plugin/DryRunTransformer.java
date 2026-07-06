@@ -18,7 +18,7 @@
 
 package com.janetfilter.core.plugin;
 
-import com.janetfilter.core.commons.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -31,7 +31,7 @@ public final class DryRunTransformer implements ClassFileTransformer {
     /**
      * Logger instance.
      */
-    private static final org.slf4j.Logger LOG = Logger.getLogger(DryRunTransformer.class);
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(DryRunTransformer.class);
 
     private final ClassFileTransformer delegate;
 

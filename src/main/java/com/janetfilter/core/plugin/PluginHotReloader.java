@@ -18,7 +18,7 @@
 
 package com.janetfilter.core.plugin;
 
-import com.janetfilter.core.commons.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
@@ -33,7 +33,7 @@ public final class PluginHotReloader {
     /**
      * Logger instance.
      */
-    private static final org.slf4j.Logger LOG = Logger.getLogger(PluginHotReloader.class);
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(PluginHotReloader.class);
 
     private final PluginManager pluginManager;
     private final Instrumentation instrumentation;

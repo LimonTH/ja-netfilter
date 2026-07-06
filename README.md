@@ -8,14 +8,16 @@ ja-netfilter is a powerful Java agent that enables runtime bytecode filtering an
 
 ## Features
 
-- **Dynamic Class Transformation** - Hook into class loading and transform bytecode at runtime
-- **Plugin System** - Extensible architecture with hot-reloadable plugins
-- **Multiple Rule Types** - Support for prefix, suffix, keyword, and regex-based filtering
-- **Attach Mode** - Attach to running JVMs without restart
-- **Javaagent Mode** - Use as `-javaagent` for startup-time instrumentation
-- **Hot Reload** - Reload plugins without JVM restart
-- **Dry-run Mode** - Test transformations without applying changes
-- **Built-in Transformer Registry** - Enable/disable transformers at runtime
+- **Dynamic Class Transformation** — Hook into class loading and transform bytecode at runtime
+- **Plugin System** — Extensible architecture with hot-reloadable plugins
+- **Multiple Rule Types** — Support for prefix, suffix, keyword, regex, and exact matching (with case-insensitive variants)
+- **Attach Mode** — Attach to running JVMs without restart (interactive and non-interactive)
+- **Javaagent Mode** — Use as `-javaagent` for startup-time instrumentation
+- **Hot Reload** — Reload plugins without JVM restart (automatic file watching)
+- **Dry-run Mode** — Test transformations without applying changes
+- **REST API** — HTTP management server for runtime control
+- **Encrypted Configs** — AES-128 encrypted configuration files support
+- **Non-interactive CLI** — Direct PID attach for scripting and automation
 
 ## Quick Start
 
@@ -40,7 +42,7 @@ The agent JAR will be created in `build/libs/` directory.
 java -javaagent:ja-netfilter.jar -jar your-application.jar
 ```
 
-#### Attach to Running JVM
+#### Attach to Running JVM (Interactive)
 
 ```bash
 java -jar ja-netfilter.jar
@@ -48,9 +50,21 @@ java -jar ja-netfilter.jar
 
 This will display a list of running JVMs and allow you to select one to attach to.
 
+#### Attach to Running JVM (Non-interactive)
+
+```bash
+java -jar ja-netfilter.jar --attach <pid>
+# or simply
+java -jar ja-netfilter.jar <pid>
+```
+
 #### Command Line Options
 
-- `--version` or `-v` - Display version information
+| Option | Description |
+|--------|-------------|
+| `--version`, `-v` | Display version information |
+| `--attach <pid>` | Attach to a specific JVM process by PID |
+| `<pid>` | Attach to a specific JVM process by PID (shorthand) |
 
 ## Configuration
 
@@ -80,6 +94,48 @@ REGEXP,^.*\.test\..*$
 | `EQUAL` | Case-sensitive exact match | `EQUAL,com.example.MyClass` |
 | `EQUAL_IC` | Case-insensitive exact match | `EQUAL_IC,com.example.MyClass` |
 | `REGEXP` | Regular expression match | `REGEXP,^com\.example\..*` |
+
+### Encrypted Configuration
+
+Configuration files can be encrypted with AES-128. To use encrypted configs:
+
+1. Set the encryption key via environment variable or system property:
+   ```bash
+   export JANF_CONFIG_KEY=your-secret-key
+   # or
+   java -Djanf.config.key=your-secret-key -jar ja-netfilter.jar
+   ```
+
+2. Encrypt your config file (the content must start with `[section]` format):
+   ```bash
+   java -cp ja-netfilter.jar com.janetfilter.core.commons.ConfigCipher
+   ```
+   Then prepend `ENC:` to the encrypted output and save it as your `.conf` file.
+
+3. The agent will automatically detect and decrypt files starting with `ENC:`.
+
+## REST API Management
+
+Start the management HTTP server by setting the port:
+
+```bash
+export JANF_MANAGEMENT_PORT=8080
+# or
+java -Djanf.management.port=8080 -jar ja-netfilter.jar
+```
+
+### Available Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/status` | Agent status (version, hooked classes, loaded plugins) |
+| `POST` | `/reload` | Reload all plugins |
+
+Example:
+```bash
+curl http://localhost:8080/status
+curl -X POST http://localhost:8080/reload
+```
 
 ## Plugin Development
 
@@ -161,11 +217,11 @@ public class YourTransformer implements MyTransformer {
 
 For **global transformers** (where `getHookClassName()` returns `null`), you can hook into multiple stages:
 
-1. `before()` - Called before transformation starts
-2. `preTransform()` - Modify bytes before main transform
-3. `transform()` - Main transformation logic
-4. `postTransform()` - Modify bytes after main transform
-5. `after()` - Called after transformation completes
+1. `before()` — Called before transformation starts
+2. `preTransform()` — Modify bytes before main transform
+3. `transform()` — Main transformation logic
+4. `postTransform()` — Modify bytes after main transform
+5. `after()` — Called after transformation completes
 
 ## Directory Structure
 
@@ -200,11 +256,12 @@ java -Djanf.debug=1 -Djanf.output=7 -javaagent:ja-netfilter.jar
 
 ### Core Components
 
-- **Launcher** - Entry point for both attach and javaagent modes
-- **Environment** - Runtime context and configuration
-- **Dispatcher** - Routes class transformations to registered transformers
-- **PluginManager** - Loads and manages plugins
-- **Initializer** - Sets up the agent environment and transformers
+- **Launcher** — Entry point for both attach and javaagent modes
+- **Environment** — Runtime context and configuration
+- **Dispatcher** — Routes class transformations to registered transformers
+- **PluginManager** — Loads and manages plugins
+- **Initializer** — Sets up the agent environment and transformers
+- **ManagementServer** — Optional HTTP server for runtime management
 
 ### Transformation Pipeline
 
@@ -227,29 +284,24 @@ dispatcher.addTransformer(dryRun);
 
 ### Hot Reload
 
-Enable automatic plugin reloading when files change:
+Plugin hot reload is enabled by default. The agent watches the plugins directory for changes and automatically reloads plugins when JAR files are added, modified, or removed.
 
-```java
-PluginHotReloader reloader = new PluginHotReloader(pluginManager, instrumentation);
-reloader.start(pluginsDirectory);
+### Encrypted Configs
+
+Configuration files can be encrypted with AES-128. Set the `JANF_CONFIG_KEY` environment variable or `janf.config.key` system property, then prefix your encrypted config with `ENC:`.
+
+### REST API
+
+Start the management server with `-Djanf.management.port=<port>` or `JANF_MANAGEMENT_PORT=<port>` to enable HTTP endpoints for runtime monitoring and control.
+
+## Docker
+
+Build and run with Docker:
+
+```bash
+docker build -t ja-netfilter .
+docker run -it --rm ja-netfilter
 ```
-
-### Built-in Transformer Registry
-
-Register and manage transformers with the ability to enable/disable:
-
-```java
-BuiltinTransformerRegistry.register("my-transformer", transformer);
-BuiltinTransformerRegistry.disable("my-transformer");
-BuiltinTransformerRegistry.enable("my-transformer");
-```
-
-## Environment Detection
-
-The agent can detect and log the runtime environment:
-- Container (Docker)
-- IntelliJ IDEA
-- CI/CD systems
 
 ## Common Issues
 
@@ -273,7 +325,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 — see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
