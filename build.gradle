@@ -1,0 +1,82 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.janetfilter.core'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.ow2.asm:asm:${project.asm_version}"
+
+    testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+def versionStr = project.findProperty('version') ?: '1.0-SNAPSHOT'
+def versionNumberInt = (project.findProperty('versionNumber') ?: '1000000') as long
+def appNameStr = project.findProperty('appName') ?: 'ja-netfilter'
+
+version = versionStr
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'com.janetfilter.core.Launcher',
+                'Agent-Class': 'com.janetfilter.core.Launcher',
+                'Can-Redefine-Classes': 'true',
+                'Can-Retransform-Classes': 'true',
+                'Implementation-Title': appNameStr,
+                'Implementation-Version': versionStr,
+                'Implementation-Vendor': 'janetfilter',
+                'Built-By': 'gradle'
+        )
+    }
+}
+
+tasks.register("generateVersionFile") {
+    outputs.dir(layout.buildDirectory.dir("generated-sources/version"))
+    doLast {
+        def versionDir = layout.buildDirectory.file("generated-sources/version/com/janetfilter/core").get().asFile
+        versionDir.mkdirs()
+        def versionFile = new File(versionDir, 'BuildVersion.java')
+        versionFile.text =
+"""package com.janetfilter.core;
+
+public class BuildVersion {
+    public static final String VERSION = "2026.1.4";
+    public static final String DEV_NAME = "LimonTH";
+    public static final long VERSION_NUMBER = 202601042L;
+    public static final String APP_NAME = "ja-netfilter";
+
+    public static String getVersion() {
+        return VERSION;
+    }
+    
+    public static String getDevName() {
+        return DEV_NAME;
+    }
+    
+    public static long getVersionNumber() {
+        return VERSION_NUMBER;
+    }
+
+    public static String getAppName() {
+        return APP_NAME;
+    }
+}"""
+    }
+}
+
+sourceSets.main.java.srcDir(layout.buildDirectory.dir("generated-sources/version"))
+
+compileJava {
+    dependsOn tasks.named("generateVersionFile")
+}
+
+test {
+    useJUnitPlatform()
+}

@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Main-Class: com.janetfilter.core.Launcher
+Agent-Class: com.janetfilter.core.Launcher
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+Implementation-Title: ${appName}
+Implementation-Version: ${version}
+Implementation-Vendor: janetfilter
+Built-By: gradle
