@@ -20,7 +20,7 @@
 
 package com.janetfilter.core.plugin;
 
-import org.slf4j.LoggerFactory;
+import com.janetfilter.core.commons.DebugInfo;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
@@ -32,11 +32,6 @@ import java.util.Map;
  * Watches for plugin file changes and reloads plugins automatically.
  */
 public final class PluginHotReloader {
-    /**
-     * Logger instance.
-     */
-    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(PluginHotReloader.class);
-
     private final PluginManager pluginManager;
     private final Instrumentation instrumentation;
     private final Map<WatchKey, Path> keys = new HashMap<>();
@@ -60,7 +55,7 @@ public final class PluginHotReloader {
      */
     public void start(File pluginsDir) {
         if (!pluginsDir.exists() || !pluginsDir.isDirectory()) {
-            LOG.warn("Plugins directory not found for hot reload: {}", pluginsDir);
+            DebugInfo.warn("Plugins directory not found for hot reload: " + pluginsDir);
             return;
         }
 
@@ -71,7 +66,7 @@ public final class PluginHotReloader {
                 WatchKey key = pluginsPath.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY);
                 keys.put(key, pluginsPath);
 
-                LOG.info("Hot reload watcher started for: {}", pluginsDir);
+                DebugInfo.info("Hot reload watcher started for: " + pluginsDir);
 
                 while (running) {
                     WatchKey watchedKey = watchService.take();
@@ -85,21 +80,21 @@ public final class PluginHotReloader {
                             continue;
                         }
 
-                        LOG.info("Plugin file changed: {} ({})", filename, kind);
+                        DebugInfo.info("Plugin file changed: " + filename + " (" + kind + ")");
                         reloadPlugins();
                     }
 
                     boolean valid = watchedKey.reset();
                     if (!valid) {
-                        LOG.warn("Watch key no longer valid");
+                        DebugInfo.warn("Watch key no longer valid");
                         break;
                     }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                LOG.info("Hot reload watcher interrupted");
+                DebugInfo.info("Hot reload watcher interrupted");
             } catch (Exception e) {
-                LOG.error("Hot reload watcher error", e);
+                DebugInfo.error("Hot reload watcher error", e);
             }
         }, "PluginHotReloader");
 
@@ -112,7 +107,7 @@ public final class PluginHotReloader {
      */
     public void stop() {
         running = false;
-        LOG.info("Hot reload watcher stopped");
+        DebugInfo.info("Hot reload watcher stopped");
     }
 
     /**
@@ -121,9 +116,9 @@ public final class PluginHotReloader {
     private synchronized void reloadPlugins() {
         try {
             pluginManager.loadPlugins();
-            LOG.info("Plugins reloaded successfully");
+            DebugInfo.info("Plugins reloaded successfully");
         } catch (Exception e) {
-            LOG.error("Failed to reload plugins", e);
+            DebugInfo.error("Failed to reload plugins", e);
         }
     }
 }

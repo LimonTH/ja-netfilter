@@ -49,8 +49,6 @@ import java.util.concurrent.Executors;
  * </ul>
  */
 public final class ManagementServer {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ManagementServer.class);
-
     private final HttpServer server;
     private final Dispatcher dispatcher;
     private final PluginManager pluginManager;
@@ -87,7 +85,6 @@ public final class ManagementServer {
     public void start() {
         server.start();
         running = true;
-        LOG.info("Management server started on port: {}", server.getAddress().getPort());
         DebugInfo.info("Management server started on port: " + server.getAddress().getPort());
     }
 
@@ -99,7 +96,7 @@ public final class ManagementServer {
         if (running) {
             server.stop(1);
             running = false;
-            LOG.info("Management server stopped");
+            DebugInfo.info("Management server stopped");
         }
     }
 
@@ -163,7 +160,7 @@ public final class ManagementServer {
             String json = "{\"status\":\"ok\",\"message\":\"Plugins reloaded\"}";
             sendJsonResponse(exchange, json);
         } catch (Exception e) {
-            LOG.error("Plugin reload failed", e);
+            DebugInfo.error("Plugin reload failed", e);
             String json = "{\"status\":\"error\",\"message\":\"" + e.getMessage() + "\"}";
             sendJsonResponse(exchange, 500, json);
         }

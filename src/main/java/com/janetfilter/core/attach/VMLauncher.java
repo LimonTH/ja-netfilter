@@ -20,8 +20,8 @@
 
 package com.janetfilter.core.attach;
 
+import com.janetfilter.core.commons.DebugInfo;
 import com.janetfilter.core.utils.WhereIsUtils;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,8 +30,6 @@ import java.io.IOException;
  * Launch target JVM via attach mechanism with support for different JDKs.
  */
 public final class VMLauncher {
-    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(VMLauncher.class);
-
     private VMLauncher() {
     }
 
@@ -60,17 +58,17 @@ public final class VMLauncher {
         }
 
         builder.inheritIO();
-        LOG.info("Launching agent for PID {}: {}", targetPid, javaBin);
+        DebugInfo.info("Launching agent for PID " + targetPid + ": " + javaBin);
         Process process = builder.start();
 
         try {
             int exitCode = process.waitFor();
             if (0 != exitCode) {
-                LOG.warn("Agent process exited with code: {}", exitCode);
+                DebugInfo.warn("Agent process exited with code: " + exitCode);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOG.error("Agent launch interrupted", e);
+            DebugInfo.error("Agent launch interrupted", e);
         } finally {
             process.destroy();
         }

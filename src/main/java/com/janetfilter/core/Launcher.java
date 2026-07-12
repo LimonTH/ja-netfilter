@@ -32,6 +32,8 @@ import java.util.jar.JarFile;
  * Entry point for the ja-netfilter agent.
  */
 public class Launcher {
+    private static volatile boolean loaded = false;
+
     /**
      * Main method for launching the agent in attach mode.
      * <p>
@@ -45,7 +47,7 @@ public class Launcher {
      *
      * @param args command line arguments
      */
-    static void main(String[] args) {
+    public static void main(String[] args) {
         if (null != args && args.length > 0) {
             String first = args[0];
             if (first.equalsIgnoreCase("--version") || first.equalsIgnoreCase("-v")) {
@@ -120,6 +122,13 @@ public class Launcher {
      * @param attachMode true if in attach mode, false if in javaagent mode
      */
     private static void run(String agentArgs, Instrumentation inst, boolean attachMode) {
+        if (loaded) {
+            DebugInfo.warn("ja-netfilter already loaded, skipping duplicate initialization");
+            return;
+        }
+
+        loaded = true;
+
         if (null != agentArgs && (agentArgs.equalsIgnoreCase("--version") || agentArgs.equalsIgnoreCase("-v"))) {
             System.out.println(BuildVersion.getAppName() + " " + BuildVersion.getVersion());
             System.out.println("Dev: " + BuildVersion.getDevName());
@@ -135,18 +144,14 @@ public class Launcher {
 
         File agentFile = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
         try {
-            // CRITICAL: make the agent's own classes (and bundled deps like slf4j/logback/asm)
-            // visible to classes loaded by the bootstrap/system class loaders, including the
-            // classes of the instrumented application (e.g. IDEA) and the plugins loaded by
-            // PluginClassLoader. Without this, transformers fail with NoClassDefFoundError and
-            // crash the JVM on startup.
             inst.appendToBootstrapClassLoaderSearch(new JarFile(agentFile));
         } catch (Throwable e) {
             DebugInfo.error("Can not access `ja-netfilter` jar file.", e);
+            loaded = false;
             return;
         }
 
-        Environment environment = new Environment(inst, agentFile, attachMode);
+        Environment environment = new Environment(inst, agentFile, agentArgs, attachMode);
         Initializer.init(environment);
     }
 }

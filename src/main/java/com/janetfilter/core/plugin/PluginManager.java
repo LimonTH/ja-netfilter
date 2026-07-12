@@ -23,8 +23,8 @@ package com.janetfilter.core.plugin;
 import com.janetfilter.core.Dispatcher;
 import com.janetfilter.core.Environment;
 import com.janetfilter.core.commons.ConfigParser;
+import com.janetfilter.core.commons.DebugInfo;
 import com.janetfilter.core.utils.StringUtils;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
@@ -46,7 +46,6 @@ public final class PluginManager {
      * Plugin entry point attribute name in manifest.
      */
     private static final String ENTRY_NAME = "JANF-Plugin-Entry";
-    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(PluginManager.class);
 
     private final Instrumentation inst;
     private final Dispatcher dispatcher;
@@ -71,7 +70,7 @@ public final class PluginManager {
      */
     public synchronized void loadPlugins() {
         if (loaded) {
-            LOG.warn("Plugins already loaded");
+            DebugInfo.warn("Plugins already loaded");
             return;
         }
 
@@ -79,14 +78,14 @@ public final class PluginManager {
 
         File pluginsDirectory = environment.getPluginsDir();
         if (!pluginsDirectory.exists() || !pluginsDirectory.isDirectory()) {
-            LOG.warn("Plugins directory not found: {}", pluginsDirectory);
+            DebugInfo.warn("Plugins directory not found: " + pluginsDirectory);
             loaded = true;
             return;
         }
 
         File[] pluginFiles = pluginsDirectory.listFiles((ignore, n) -> n.endsWith(".jar"));
         if (null == pluginFiles) {
-            LOG.warn("No plugin files found in: {}", pluginsDirectory);
+            DebugInfo.warn("No plugin files found in: " + pluginsDirectory);
             loaded = true;
             return;
         }
@@ -108,12 +107,12 @@ public final class PluginManager {
             }
 
             double elapsed = (System.currentTimeMillis() - startTime) / 1000D;
-            LOG.info("============ All plugins loaded, {}s elapsed ============", String.format("%.2f", elapsed));
+            DebugInfo.info("============ All plugins loaded, " + String.format("%.2f", elapsed) + "s elapsed ============");
         } catch (PluginLoadException e) {
-            LOG.error("Load plugin failed", e);
+            DebugInfo.error("Load plugin failed", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOG.error("Plugin loading interrupted", e);
+            DebugInfo.error("Plugin loading interrupted", e);
         } finally {
             loaded = true;
         }
@@ -147,10 +146,11 @@ public final class PluginManager {
         }
 
         @Override
+        @SuppressWarnings("deprecation")
         public void run() {
             try {
                 if (pluginFile.getName().endsWith(environment.getDisabledPluginSuffix())) {
-                    LOG.info("Disabled plugin: {}, ignored.", pluginFile);
+                    DebugInfo.info("Disabled plugin: " + pluginFile + ", ignored.");
                     return;
                 }
 
@@ -173,8 +173,9 @@ public final class PluginManager {
                     inst.appendToBootstrapClassLoaderSearch(jarFile);
                 }
 
-                PluginEntry pluginEntry = klass.asSubclass(PluginEntry.class)
-                        .getDeclaredConstructor().newInstance();
+                // Use newInstance() for backward compatibility with plugins that may have
+                // non-public constructors (old ja-netfilter plugin API)
+                PluginEntry pluginEntry = (PluginEntry) Class.forName(entryClass).newInstance();
 
                 File configFile = new File(environment.getConfigDir(), pluginEntry.getName().toLowerCase() + ".conf");
                 PluginConfig pluginConfig = new PluginConfig(configFile, ConfigParser.parse(configFile));
@@ -183,9 +184,9 @@ public final class PluginManager {
                 dispatcher.addTransformers(pluginEntry.getTransformers());
                 loadedPlugins.add(pluginEntry);
 
-                LOG.info("Plugin loaded: name={}, version={}, author={}", pluginEntry.getName(), pluginEntry.getVersion(), pluginEntry.getAuthor());
+                DebugInfo.info("Plugin loaded: {name=" + pluginEntry.getName() + ", version=" + pluginEntry.getVersion() + ", author=" + pluginEntry.getAuthor() + "}");
             } catch (Throwable e) {
-                LOG.error("Parse plugin info failed", e);
+                DebugInfo.error("Parse plugin info failed", e);
             }
         }
     }

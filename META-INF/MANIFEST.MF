@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+Main-Class: com.janetfilter.core.Launcher
+Premain-Class: com.janetfilter.core.Launcher
+Agent-Class: com.janetfilter.core.Launcher
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+Can-Set-Native-Method-Prefix: true
+Implementation-Title: ja-netfilter
+Implementation-Version: 2026.1.4
+Implementation-Vendor: janetfilter
+Built-By: gradle
+

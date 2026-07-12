@@ -20,7 +20,7 @@
 
 package com.janetfilter.core.plugin;
 
-import org.slf4j.LoggerFactory;
+import com.janetfilter.core.commons.DebugInfo;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -30,11 +30,6 @@ import java.security.ProtectionDomain;
  * Transformer wrapper that logs transformations without applying them.
  */
 public final class DryRunTransformer implements ClassFileTransformer {
-    /**
-     * Logger instance.
-     */
-    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(DryRunTransformer.class);
-
     private final ClassFileTransformer delegate;
 
     /**
@@ -49,18 +44,18 @@ public final class DryRunTransformer implements ClassFileTransformer {
     @Override
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                             ProtectionDomain protectionDomain, byte[] classFileBuffer) throws IllegalClassFormatException {
-        LOG.info("[DRY-RUN] Would transform class: {}", className);
+        DebugInfo.info("[DRY-RUN] Would transform class: " + className);
         try {
             byte[] result = delegate.transform(loader, className, classBeingRedefined, protectionDomain, classFileBuffer);
             if (null != result) {
-                LOG.info("[DRY-RUN] Would modify bytes for class: {} ({} bytes)", className, result.length);
+                DebugInfo.info("[DRY-RUN] Would modify bytes for class: " + className + " (" + result.length + " bytes)");
             }
             return null; // Changes not applied
         } catch (IllegalClassFormatException e) {
-            LOG.error("[DRY-RUN] Delegate failed for class: {}", className, e);
+            DebugInfo.error("[DRY-RUN] Delegate failed for class: " + className, e);
             throw e;
         } catch (Throwable e) {
-            LOG.error("[DRY-RUN] Delegate failed for class: {}", className, e);
+            DebugInfo.error("[DRY-RUN] Delegate failed for class: " + className, e);
             throw new IllegalClassFormatException("Delegate transformer failed: " + e.getMessage());
         }
     }

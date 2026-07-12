@@ -28,17 +28,27 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Plugin configuration record.
+ * Plugin configuration.
+ * Class-based for backward compatibility with plugins compiled against the old API.
  */
-public record PluginConfig(File file, Map<String, List<FilterRule>> data) {
+public class PluginConfig {
+    private final File file;
+    private final Map<String, List<FilterRule>> data;
 
-    /**
-     * Get filter rules by section name.
-     *
-     * @param section the section name
-     * @return list of filter rules
-     */
+    public PluginConfig(File file, Map<String, List<FilterRule>> data) {
+        this.file = file;
+        this.data = data;
+    }
+
     public List<FilterRule> getBySection(String section) {
         return data.getOrDefault(section, new ArrayList<>());
+    }
+
+    public File getFile() {
+        return file;
+    }
+
+    public Map<String, List<FilterRule>> getData() {
+        return data;
     }
 }
