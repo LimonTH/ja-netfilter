@@ -10,8 +10,8 @@ repositories {
 
 dependencies {
     implementation "org.ow2.asm:asm:${project.asm_version}"
-    implementation "org.slf4j:slf4j-api:${project.slf4j_version}"
     implementation "ch.qos.logback:logback-classic:${project.logback_version}"
+    implementation "org.slf4j:slf4j-api:${project.slf4j_version}"
 
     testImplementation platform("org.junit:junit-bom:${project.junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -25,6 +25,19 @@ def appNameStr = project.findProperty('appName') ?: 'ja-netfilter'
 version = versionStr
 
 jar {
+    enabled = false
+}
+
+// Build a self-contained (fat) jar that bundles all runtime dependencies
+// (asm, slf4j, logback) inside the agent jar. This is REQUIRED: ja-netfilter
+// adds itself to the bootstrap class loader search via
+// Instrumentation.appendToBootstrapClassLoaderSearch(...) so that the agent's
+// own classes AND its dependencies are visible to the instrumented application
+// (e.g. IDEA) and to plugins loaded by PluginClassLoader. Without the bundled
+// dependencies the JVM crashes on startup with NoClassDefFoundError.
+tasks.register('fatJar', Jar) {
+    archiveClassifier = ''
+    archiveBaseName = 'ja-netfilter'
     manifest {
         attributes(
                 'Main-Class': 'com.janetfilter.core.Launcher',
@@ -37,6 +50,21 @@ jar {
                 'Built-By': 'gradle'
         )
     }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from {
+        // Bundle only ASM and slf4j-api. Do NOT bundle logback (ch.qos.logback.*):
+        // the agent is added to the bootstrap class loader search via
+        // Instrumentation.appendToBootstrapClassLoaderSearch(...), so its classes
+        // take precedence over the application (IDEA) class path. Bundling logback
+        // would shadow IDEA's own logback and crash the IDE on startup. IDEA
+        // already provides the slf4j binding, so slf4j-api will link at runtime.
+        configurations.runtimeClasspath
+                .filter { file -> !file.name.startsWith('logback') }
+                .collect { file -> file.isDirectory() ? file : zipTree(file) }
+    }
+    with jar
 }
 
 tasks.register("generateVersionFile") {

@@ -1,19 +1,21 @@
 /*
- * Original Code by Neo Peng pengzhile@gmail.com
- * Copyright (C) 2026 LimonTH (Modifications and updates)
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ *  * Original Code by Neo Peng pengzhile@gmail.com
+ *  * Copyright (C) 2026 LimonTH (Modifications and updates)
+ *  *
+ *  * This program is free software: you can redistribute it and/or modify
+ *  * it under the terms of the GNU General Public License as published by
+ *  * the Free Software Foundation, either version 3 of the License, or
+ *  * (at your option) any later version.
+ *  *
+ *  * This program is distributed in the hope that it will be useful,
+ *  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  * GNU General Public License for more details.
+ *  *
+ *  * You should have received a copy of the GNU General Public License
+ *  * along with this program.  If not, see <https://gnu.org>.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.janetfilter.core;
@@ -24,6 +26,7 @@ import com.janetfilter.core.commons.DebugInfo;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
+import java.util.jar.JarFile;
 
 /**
  * Entry point for the ja-netfilter agent.
@@ -130,7 +133,20 @@ public class Launcher {
         DebugInfo.output("Mode: " + (attachMode ? "attach" : "premain"));
         DebugInfo.output("========================================");
 
-        Environment environment = new Environment(inst, new java.io.File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile()), attachMode);
+        File agentFile = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+        try {
+            // CRITICAL: make the agent's own classes (and bundled deps like slf4j/logback/asm)
+            // visible to classes loaded by the bootstrap/system class loaders, including the
+            // classes of the instrumented application (e.g. IDEA) and the plugins loaded by
+            // PluginClassLoader. Without this, transformers fail with NoClassDefFoundError and
+            // crash the JVM on startup.
+            inst.appendToBootstrapClassLoaderSearch(new JarFile(agentFile));
+        } catch (Throwable e) {
+            DebugInfo.error("Can not access `ja-netfilter` jar file.", e);
+            return;
+        }
+
+        Environment environment = new Environment(inst, agentFile, attachMode);
         Initializer.init(environment);
     }
 }
