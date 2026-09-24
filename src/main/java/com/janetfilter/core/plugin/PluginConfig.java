@@ -1,21 +1,18 @@
 /*
+ * Copyright (C) 2026 LimonTH
  *
- *  * Original Code by Neo Peng pengzhile@gmail.com
- *  * Copyright (C) 2026 LimonTH (Modifications and updates)
- *  *
- *  * This program is free software: you can redistribute it and/or modify
- *  * it under the terms of the GNU General Public License as published by
- *  * the Free Software Foundation, either version 3 of the License, or
- *  * (at your option) any later version.
- *  *
- *  * This program is distributed in the hope that it will be useful,
- *  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  * GNU General Public License for more details.
- *  *
- *  * You should have received a copy of the GNU General Public License
- *  * along with this program.  If not, see <https://gnu.org>.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.janetfilter.core.plugin;
@@ -28,27 +25,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Plugin configuration.
- * Class-based for backward compatibility with plugins compiled against the old API.
+ * Plugin configuration. Class-based for backward compatibility with plugins compiled against the
+ * old API.
  */
-public class PluginConfig {
-    private final File file;
-    private final Map<String, List<FilterRule>> data;
+public record PluginConfig(File file,Map<String,List<FilterRule>> data) {
 
-    public PluginConfig(File file, Map<String, List<FilterRule>> data) {
-        this.file = file;
-        this.data = data;
-    }
-
-    public List<FilterRule> getBySection(String section) {
-        return data.getOrDefault(section, new ArrayList<>());
-    }
-
-    public File getFile() {
-        return file;
-    }
-
-    public Map<String, List<FilterRule>> getData() {
-        return data;
-    }
+  public List<FilterRule> getBySection(String section) {
+    return data.getOrDefault(section, new ArrayList<>());
+  }
 }

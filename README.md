@@ -1,10 +1,10 @@
-# ja-netfilter
+# class-inspector
 
-**Version:** 2026.1.4  
+**Version:** 1.0.0  
 **Author:** LimonTH  
 **License:** GNU General Public License v3.0
 
-ja-netfilter is a powerful Java agent that enables runtime bytecode filtering and transformation. It allows you to hook into class loading and modify bytecode dynamically without restarting the JVM.
+class-inspector is an educational Java agent for studying bytecode instrumentation and runtime class transformation. It demonstrates how to hook into class loading, modify bytecode dynamically, and build a plugin-based transformation pipeline.
 
 ## Features
 
@@ -23,8 +23,8 @@ ja-netfilter is a powerful Java agent that enables runtime bytecode filtering an
 
 ### Prerequisites
 
-- Java 8 or higher
-- Gradle 7.0+ (for building)
+- Java 17 or higher
+- Gradle 9.7+ (for building)
 
 ### Building
 
@@ -39,13 +39,13 @@ The agent JAR will be created in `build/libs/` directory.
 #### As Java Agent
 
 ```bash
-java -javaagent:ja-netfilter.jar -jar your-application.jar
+java -javaagent:class-inspector.jar -jar your-application.jar
 ```
 
 #### Attach to Running JVM (Interactive)
 
 ```bash
-java -jar ja-netfilter.jar
+java -jar class-inspector.jar
 ```
 
 This will display a list of running JVMs and allow you to select one to attach to.
@@ -53,9 +53,9 @@ This will display a list of running JVMs and allow you to select one to attach t
 #### Attach to Running JVM (Non-interactive)
 
 ```bash
-java -jar ja-netfilter.jar --attach <pid>
+java -jar class-inspector.jar --attach <pid>
 # or simply
-java -jar ja-netfilter.jar <pid>
+java -jar class-inspector.jar <pid>
 ```
 
 #### Command Line Options
@@ -68,7 +68,7 @@ java -jar ja-netfilter.jar <pid>
 
 ## Configuration
 
-ja-netfilter uses a configuration file-based system for defining filtering rules.
+class-inspector uses a configuration file-based system for defining filtering rules.
 
 ### Configuration File Format
 
@@ -103,12 +103,12 @@ Configuration files can be encrypted with AES-128. To use encrypted configs:
    ```bash
    export JANF_CONFIG_KEY=your-secret-key
    # or
-   java -Djanf.config.key=your-secret-key -jar ja-netfilter.jar
+   java -Djanf.config.key=your-secret-key -jar class-inspector.jar
    ```
 
 2. Encrypt your config file (the content must start with `[section]` format):
    ```bash
-   java -cp ja-netfilter.jar com.janetfilter.core.commons.ConfigCipher
+   java -cp class-inspector.jar com.janetfilter.core.commons.ConfigCipher
    ```
    Then prepend `ENC:` to the encrypted output and save it as your `.conf` file.
 
@@ -121,7 +121,7 @@ Start the management HTTP server by setting the port:
 ```bash
 export JANF_MANAGEMENT_PORT=8080
 # or
-java -Djanf.management.port=8080 -jar ja-netfilter.jar
+java -Djanf.management.port=8080 -jar class-inspector.jar
 ```
 
 ### Available Endpoints
@@ -226,7 +226,7 @@ For **global transformers** (where `getHookClassName()` returns `null`), you can
 ## Directory Structure
 
 ```
-ja-netfilter/
+class-inspector/
 ├── config/              # Configuration files
 ├── config-<app>/        # App-specific configurations
 ├── plugins/             # Plugin JAR files
@@ -249,7 +249,7 @@ export JANF_OUTPUT=7
 
 Or as JVM arguments:
 ```bash
-java -Djanf.debug=1 -Djanf.output=7 -javaagent:ja-netfilter.jar
+java -Djanf.debug=1 -Djanf.output=7 -javaagent:class-inspector.jar
 ```
 
 ## Architecture
@@ -299,8 +299,8 @@ Start the management server with `-Djanf.management.port=<port>` or `JANF_MANAGE
 Build and run with Docker:
 
 ```bash
-docker build -t ja-netfilter .
-docker run -it --rm ja-netfilter
+docker build -t class-inspector .
+docker run -it --rm class-inspector
 ```
 
 ## Common Issues
@@ -319,15 +319,6 @@ docker run -it --rm ja-netfilter
 - Check logs directory for error messages
 - Verify plugin is in the correct `plugins/` directory
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues and pull requests.
-
 ## License
 
 This project is licensed under the GNU General Public License v3.0 — see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Original code by Neo Peng (pengzhile@gmail.com)
-- Modifications and updates by LimonTH (2026)

@@ -1,21 +1,18 @@
 /*
+ * Copyright (C) 2026 LimonTH
  *
- *  * Original Code by Neo Peng pengzhile@gmail.com
- *  * Copyright (C) 2026 LimonTH (Modifications and updates)
- *  *
- *  * This program is free software: you can redistribute it and/or modify
- *  * it under the terms of the GNU General Public License as published by
- *  * the Free Software Foundation, either version 3 of the License, or
- *  * (at your option) any later version.
- *  *
- *  * This program is distributed in the hope that it will be useful,
- *  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  * GNU General Public License for more details.
- *  *
- *  * You should have received a copy of the GNU General Public License
- *  * along with this program.  If not, see <https://gnu.org>.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.janetfilter.core.plugin;
@@ -144,8 +141,6 @@ public final class PluginManager {
 
         doLoadPlugins();
 
-        // Retransformation restarts from the original class file bytes, so a single pass both
-        // reverts the hooks that are gone and applies the hooks that are new.
         retransformHookedClasses(previouslyHooked);
     }
 
@@ -185,8 +180,6 @@ public final class PluginManager {
             }
 
             try {
-                // Resolve the class before retransforming it: retransforming a class that is
-                // still being loaded would otherwise deadlock the class loading lock.
                 klass.getGenericSuperclass();
                 inst.retransformClasses(klass);
             } catch (Throwable e) {
@@ -215,8 +208,6 @@ public final class PluginManager {
             return;
         }
 
-        // An empty plugins directory used to reach Executors.newFixedThreadPool(0), which throws
-        // IllegalArgumentException and aborted the whole agent initialization.
         int threadCount = Math.min(pluginFiles.length, MAX_LOAD_THREADS);
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount, daemonThreadFactory("janf-plugin-loader"));
         try {
@@ -322,7 +313,6 @@ public final class PluginManager {
                     return;
                 }
 
-                // Make the plugin visible to the classes that are going to be instrumented.
                 keepOpen = appendToBootstrapSearch(jarFile, canonicalPath);
 
                 PluginClassLoader classLoader = new PluginClassLoader(jarFile);

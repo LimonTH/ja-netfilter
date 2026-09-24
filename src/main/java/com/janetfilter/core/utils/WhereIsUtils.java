@@ -1,21 +1,18 @@
 /*
+ * Copyright (C) 2026 LimonTH
  *
- *  * Original Code by Neo Peng pengzhile@gmail.com
- *  * Copyright (C) 2026 LimonTH (Modifications and updates)
- *  *
- *  * This program is free software: you can redistribute it and/or modify
- *  * it under the terms of the GNU General Public License as published by
- *  * the Free Software Foundation, either version 3 of the License, or
- *  * (at your option) any later version.
- *  *
- *  * This program is distributed in the hope that it will be useful,
- *  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  * GNU General Public License for more details.
- *  *
- *  * You should have received a copy of the GNU General Public License
- *  * along with this program.  If not, see <https://gnu.org>.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.janetfilter.core.utils;
@@ -98,9 +95,7 @@ public class WhereIsUtils {
      * Marker resource that is always packaged inside the agent JAR.
      * <p>
      * It exists solely to allow locating the agent JAR when it was loaded by a custom
-     * system class loader (for example IntelliJ's
-     * {@code com.intellij.util.lang.PathClassLoader}) which defines classes without a
-     * {@link CodeSource}.
+     * system class loader which defines classes without a {@link CodeSource}.
      * </p>
      */
     private static final String JAR_MARKER_RESOURCE = "/6c81ec87e55d331c267262e892427a3d93d76683.txt";
@@ -109,7 +104,7 @@ public class WhereIsUtils {
      * Get the URI of the agent JAR.
      * <p>
      * The preferred way is to read the {@link CodeSource} of {@link Launcher}. However,
-     * some custom system class loaders (e.g. IntelliJ's {@code PathClassLoader}) define
+     * some custom system class loaders define
      * classes without a {@code CodeSource} or without a {@code location}, in which case
      * we fall back to the location of the marker resource packaged inside the agent JAR.
      * </p>

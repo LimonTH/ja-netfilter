@@ -1,33 +1,29 @@
 /*
+ * Copyright (C) 2026 LimonTH
  *
- *  * Original Code by Neo Peng pengzhile@gmail.com
- *  * Copyright (C) 2026 LimonTH (Modifications and updates)
- *  *
- *  * This program is free software: you can redistribute it and/or modify
- *  * it under the terms of the GNU General Public License as published by
- *  * the Free Software Foundation, either version 3 of the License, or
- *  * (at your option) any later version.
- *  *
- *  * This program is distributed in the hope that it will be useful,
- *  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  * GNU General Public License for more details.
- *  *
- *  * You should have received a copy of the GNU General Public License
- *  * along with this program.  If not, see <https://gnu.org>.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.janetfilter.core;
 
-import com.janetfilter.core.plugin.MyTransformer;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
+import com.janetfilter.core.plugin.MyTransformer;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for Dispatcher.
@@ -35,6 +31,12 @@ import static org.junit.jupiter.api.Assertions.*;
 public class DispatcherTest {
     private static final String HOOK_CLASS = "com/example/Target";
     private static final String HOOK_CLASS_DOTTED = "com.example.Target";
+
+    private static Dispatcher dispatcher(boolean attachMode) throws IOException {
+        File base = Files.createTempDirectory("janf-dispatcher").toFile();
+
+        return new Dispatcher(new Environment(null, new File(base, "ja-netfilter.jar"), attachMode));
+    }
 
     @Test
     public void testGetHookClassNamesShouldReturnDottedNames() throws Exception {
@@ -151,12 +153,6 @@ public class DispatcherTest {
         assertFalse(dispatcher.getHookClassNames().isEmpty());
     }
 
-    private static Dispatcher dispatcher(boolean attachMode) throws IOException {
-        File base = Files.createTempDirectory("janf-dispatcher").toFile();
-
-        return new Dispatcher(new Environment(null, new File(base, "ja-netfilter.jar"), attachMode));
-    }
-
     /**
      * Transformer that returns a fixed result and records the buffer it received.
      */
@@ -186,14 +182,7 @@ public class DispatcherTest {
     /**
      * Transformer that always returns the same bytes.
      */
-    private static class FixedResultTransformer implements MyTransformer {
-        private final String hookClassName;
-        private final byte[] result;
-
-        FixedResultTransformer(String hookClassName, byte[] result) {
-            this.hookClassName = hookClassName;
-            this.result = result;
-        }
+    private record FixedResultTransformer(String hookClassName,byte[] result) implements MyTransformer {
 
         @Override
         public String getHookClassName() {

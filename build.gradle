@@ -23,8 +23,8 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-def versionStr = project.findProperty('version') ?: '0000.0.0'
-def versionNumber = (project.findProperty('versionNumber') ?: '1000000') as long
+def versionStr = project.findProperty('version') ?: '0.0.0'
+def versionNumber = versionStr.replaceAll('\\.', '') as long
 def appNameStr = project.findProperty('appName') ?: 'ja-netfilter'
 
 version = versionStr

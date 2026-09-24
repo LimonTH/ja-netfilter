@@ -1,21 +1,18 @@
 /*
+ * Copyright (C) 2026 LimonTH
  *
- *  * Original Code by Neo Peng pengzhile@gmail.com
- *  * Copyright (C) 2026 LimonTH (Modifications and updates)
- *  *
- *  * This program is free software: you can redistribute it and/or modify
- *  * it under the terms of the GNU General Public License as published by
- *  * the Free Software Foundation, either version 3 of the License, or
- *  * (at your option) any later version.
- *  *
- *  * This program is distributed in the hope that it will be useful,
- *  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  * GNU General Public License for more details.
- *  *
- *  * You should have received a copy of the GNU General Public License
- *  * along with this program.  If not, see <https://gnu.org>.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.janetfilter.core;
@@ -183,8 +180,6 @@ public final class Dispatcher implements ClassFileTransformer {
             DebugInfo.error("Transform class failed: " + className, e);
         }
 
-        // `after()` always runs, even when the transformation failed, so that global
-        // transformers cannot leak per-class state for classes they failed on.
         try {
             for (MyTransformer transformer : globalTransformers) {
                 transformer.after(loader, classBeingRedefined, protectionDomain, className, classFileBuffer);
