@@ -31,6 +31,7 @@ import java.io.PrintStream;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 /**
  * Debug and logging utility for console and file output.
@@ -50,8 +51,10 @@ public class DebugInfo {
      */
     public static final long OUTPUT_WITH_PID = 0x4L;
 
-    private static final ExecutorService CONSOLE_EXECUTOR = Executors.newSingleThreadExecutor();
-    private static final ExecutorService FILE_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final ExecutorService CONSOLE_EXECUTOR =
+            Executors.newSingleThreadExecutor(daemonThreadFactory("janf-console-logger"));
+    private static final ExecutorService FILE_EXECUTOR =
+            Executors.newSingleThreadExecutor(daemonThreadFactory("janf-file-logger"));
     private static final String CLASS_NAME = DebugInfo.class.getName();
     private static final String LOG_TEMPLATE = "%s %-5s [%s@%-5s] %s-%d : %s%n";
     private static final String PID = ProcessUtils.currentId();
@@ -68,6 +71,14 @@ public class DebugInfo {
             output = StringUtils.toLong(System.getenv("JANF_OUTPUT"));
         }
         LOG_OUTPUT = null == output ? OUTPUT_CONSOLE : output;
+    }
+
+    private static ThreadFactory daemonThreadFactory(String name) {
+        return runnable -> {
+            Thread thread = new Thread(runnable, name);
+            thread.setDaemon(true);
+            return thread;
+        };
     }
 
     /**

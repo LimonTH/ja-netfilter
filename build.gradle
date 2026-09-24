@@ -54,11 +54,18 @@ tasks.register('fatJar', Jar) {
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
+    exclude 'module-info.class'
+    exclude 'META-INF/versions/**/module-info.class'
+
     from {
         configurations.runtimeClasspath
                 .collect { file -> file.isDirectory() ? file : zipTree(file) }
     }
     with jar
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('fatJar')
 }
 
 tasks.register("generateVersionFile") {

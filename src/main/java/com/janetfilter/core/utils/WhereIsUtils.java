@@ -24,8 +24,12 @@ import com.janetfilter.core.Launcher;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.JarURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.net.URLConnection;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
 
 /**
  * Utilities for locating Java-related executables.
@@ -91,32 +95,71 @@ public class WhereIsUtils {
     }
 
     /**
+     * Marker resource that is always packaged inside the agent JAR.
+     * <p>
+     * It exists solely to allow locating the agent JAR when it was loaded by a custom
+     * system class loader (for example IntelliJ's
+     * {@code com.intellij.util.lang.PathClassLoader}) which defines classes without a
+     * {@link CodeSource}.
+     * </p>
+     */
+    private static final String JAR_MARKER_RESOURCE = "/6c81ec87e55d331c267262e892427a3d93d76683.txt";
+
+    /**
      * Get the URI of the agent JAR.
+     * <p>
+     * The preferred way is to read the {@link CodeSource} of {@link Launcher}. However,
+     * some custom system class loaders (e.g. IntelliJ's {@code PathClassLoader}) define
+     * classes without a {@code CodeSource} or without a {@code location}, in which case
+     * we fall back to the location of the marker resource packaged inside the agent JAR.
+     * </p>
      *
      * @return the agent JAR URI
      * @throws Exception if unable to locate the agent JAR
      */
     public static URI getJarURI() throws Exception {
-        URL url = Launcher.class.getProtectionDomain().getCodeSource().getLocation();
-        if (null != url) {
-            return url.toURI();
+        ProtectionDomain domain = Launcher.class.getProtectionDomain();
+        CodeSource codeSource = null == domain ? null : domain.getCodeSource();
+        URL location = null == codeSource ? null : codeSource.getLocation();
+        if (null != location) {
+            return location.toURI();
         }
 
-        String resourcePath = "/6c81ec87e55d331c267262e892427a3d93d76683.txt";
-        url = Launcher.class.getResource(resourcePath);
-        if (null == url) {
-            throw new Exception("Can not locate resource file.");
+        URL resource = Launcher.class.getResource(JAR_MARKER_RESOURCE);
+        if (null == resource) {
+            throw new IOException("Can not locate marker resource: " + JAR_MARKER_RESOURCE);
         }
 
-        String path = url.getPath();
-        if (!path.endsWith("!" + resourcePath)) {
-            throw new Exception("Invalid resource path.");
+        URLConnection connection = resource.openConnection();
+        if (connection instanceof JarURLConnection) {
+            return ((JarURLConnection) connection).getJarFileURL().toURI();
         }
 
-        path = path.substring(0, path.length() - resourcePath.length() - 1);
+        String path = resource.getPath();
+        if (!path.endsWith("!" + JAR_MARKER_RESOURCE)) {
+            throw new IOException("Invalid marker resource path: " + path);
+        }
 
-        return new URI(path);
+        return new URI(path.substring(0, path.length() - JAR_MARKER_RESOURCE.length() - 1));
+    }
 
+    /**
+     * Get the agent JAR as a {@link File}.
+     * <p>
+     * Unlike {@link URI#getPath()}, the returned file correctly decodes percent-encoded
+     * characters (e.g. spaces or non-ASCII characters in the path).
+     * </p>
+     *
+     * @return the agent JAR file
+     * @throws Exception if unable to locate the agent JAR
+     */
+    public static File getJarFile() throws Exception {
+        URI uri = getJarURI();
+        try {
+            return new File(uri);
+        } catch (IllegalArgumentException e) {
+            return new File(uri.getSchemeSpecificPart());
+        }
     }
 
     private static File getCanonicalFile(File file) {

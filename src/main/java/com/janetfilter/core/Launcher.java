@@ -23,6 +23,7 @@ package com.janetfilter.core;
 import com.janetfilter.core.attach.VMLauncher;
 import com.janetfilter.core.attach.VMSelector;
 import com.janetfilter.core.commons.DebugInfo;
+import com.janetfilter.core.utils.WhereIsUtils;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
@@ -60,7 +61,7 @@ public class Launcher {
             // Non-interactive attach mode: java -jar ja-netfilter.jar --attach <pid>
             if (first.equalsIgnoreCase("--attach") && args.length > 1) {
                 try {
-                    File agentJar = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+                    File agentJar = WhereIsUtils.getJarFile();
                     String targetPid = args[1];
                     String agentArgs = args.length > 2 ? args[2] : "";
                     VMLauncher.launch(agentJar, targetPid, agentArgs);
@@ -74,7 +75,7 @@ public class Launcher {
             // If first argument looks like a PID (digits only), treat as direct attach
             if (first.matches("\\d+")) {
                 try {
-                    File agentJar = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+                    File agentJar = WhereIsUtils.getJarFile();
                     String agentArgs = args.length > 1 ? args[1] : "";
                     VMLauncher.launch(agentJar, first, agentArgs);
                 } catch (Exception e) {
@@ -86,7 +87,7 @@ public class Launcher {
         }
 
         try {
-            File agentJar = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+            File agentJar = WhereIsUtils.getJarFile();
             new VMSelector(agentJar).select();
         } catch (Exception e) {
             DebugInfo.error("Launcher main failed", e);
@@ -142,16 +143,31 @@ public class Launcher {
         DebugInfo.output("Mode: " + (attachMode ? "attach" : "premain"));
         DebugInfo.output("========================================");
 
-        File agentFile = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+        File agentFile;
         try {
-            inst.appendToBootstrapClassLoaderSearch(new JarFile(agentFile));
+            agentFile = WhereIsUtils.getJarFile();
         } catch (Throwable e) {
-            DebugInfo.error("Can not access `ja-netfilter` jar file.", e);
+            DebugInfo.error("Can not locate `" + BuildVersion.getAppName() + "` jar file.", e);
             loaded = false;
             return;
         }
 
-        Environment environment = new Environment(inst, agentFile, agentArgs, attachMode);
-        Initializer.init(environment);
+        try {
+            inst.appendToBootstrapClassLoaderSearch(new JarFile(agentFile));
+        } catch (Throwable e) {
+            DebugInfo.error("Can not access `" + BuildVersion.getAppName() + "` jar file.", e);
+            loaded = false;
+            return;
+        }
+
+        try {
+            Environment environment = new Environment(inst, agentFile, agentArgs, attachMode);
+            Initializer.init(environment);
+        } catch (Throwable e) {
+            // Never propagate exceptions out of premain/agentmain: the JVM aborts the
+            // whole process with a fatal error if an agent fails to start.
+            DebugInfo.error("Failed to initialize `" + BuildVersion.getAppName() + "`.", e);
+            loaded = false;
+        }
     }
 }
