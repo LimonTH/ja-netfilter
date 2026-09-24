@@ -20,11 +20,8 @@
 
 package com.janetfilter.core.plugin;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
@@ -36,7 +33,6 @@ public final class PluginClassLoader extends ClassLoader {
      * Plugin JAR file.
      */
     private final JarFile jarFile;
-    private final Map<String, Class<?>> classCache = new ConcurrentHashMap<>();
 
     /**
      * Create a plugin class loader.
@@ -49,16 +45,11 @@ public final class PluginClassLoader extends ClassLoader {
 
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
-        Class<?> cached = classCache.get(name);
-        if (null != cached) {
-            return cached;
-        }
-
+        // No local cache: ClassLoader#loadClass serializes calls for the same name and the JVM
+        // caches defined classes itself, so an extra map would only leak alongside the loader.
         byte[] bytes = loadClassFromFile(name);
-        Class<?> defined = defineClass(name, bytes, 0, bytes.length);
-        classCache.put(name, defined);
 
-        return defined;
+        return defineClass(name, bytes, 0, bytes.length);
     }
 
     private byte[] loadClassFromFile(String fileName) throws ClassNotFoundException {
@@ -68,18 +59,10 @@ public final class PluginClassLoader extends ClassLoader {
             throw new ClassNotFoundException("Class not found: " + fileName);
         }
 
-        int length;
-        byte[] buffer = new byte[4096];
-        ByteArrayOutputStream byteStream = new ByteArrayOutputStream((int) entry.getSize());
-
         try (InputStream is = jarFile.getInputStream(entry)) {
-            while (-1 != (length = is.read(buffer))) {
-                byteStream.write(buffer, 0, length);
-            }
+            return is.readAllBytes();
         } catch (IOException e) {
             throw new ClassNotFoundException("Can't access class: " + fileName, e);
         }
-
-        return byteStream.toByteArray();
     }
 }

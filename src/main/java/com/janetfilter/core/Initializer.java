@@ -26,7 +26,6 @@ import com.janetfilter.core.plugin.PluginManager;
 import com.janetfilter.core.rest.ManagementServer;
 
 import java.lang.instrument.Instrumentation;
-import java.util.Set;
 
 /**
  * Initializes the agent by loading plugins and setting up transformers.
@@ -47,30 +46,18 @@ public class Initializer {
 
         Instrumentation inst = environment.getInstrumentation();
 
+        inst.addTransformer(dispatcher, true);
+        inst.setNativeMethodPrefix(dispatcher, environment.getNativePrefix());
+
+        // Apply the transformers to the classes that are already loaded.
+        pluginManager.retransformHookedClasses(null);
+
         // Start hot reload watcher for plugins
         PluginHotReloader hotReloader = new PluginHotReloader(pluginManager, inst);
         hotReloader.start(environment.getPluginsDir());
 
         // Start management server if configured
         startManagementServer(dispatcher, pluginManager);
-
-        inst.addTransformer(dispatcher, true);
-        inst.setNativeMethodPrefix(dispatcher, environment.getNativePrefix());
-
-        Set<String> classSet = dispatcher.getHookClassNames();
-        for (Class<?> c : inst.getAllLoadedClasses()) {
-            String name = c.getName();
-            if (!classSet.contains(name)) {
-                continue;
-            }
-
-            try {
-                Object ignore = c.getGenericSuperclass();
-                inst.retransformClasses(c);
-            } catch (Throwable e) {
-                DebugInfo.error("Retransform class failed: " + name, e);
-            }
-        }
     }
 
     /**
@@ -105,7 +92,8 @@ public class Initializer {
         try {
             ManagementServer mgmtServer = new ManagementServer(port, dispatcher, pluginManager);
             mgmtServer.start();
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // The management API is optional and must never make the instrumentation agent unusable.
             DebugInfo.error("Failed to start management server", e);
         }
     }

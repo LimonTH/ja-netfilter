@@ -24,22 +24,44 @@ import com.janetfilter.core.BuildVersion;
 import com.janetfilter.core.Dispatcher;
 import com.janetfilter.core.commons.DebugInfo;
 import com.janetfilter.core.plugin.PluginManager;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Lightweight HTTP management server for controlling the agent at runtime.
  * <p>
- * Provides REST API endpoints for querying status and reloading plugins.
- * The server is started automatically if the system property
- * {@code janf.management.port} or environment variable {@code JANF_MANAGEMENT_PORT}
- * is set to a valid port number.
+ * Implemented on a raw {@link ServerSocket} using only {@code java.base} APIs. This is
+ * deliberate: the agent JAR is appended to the bootstrap class loader search, and the
+ * bootstrap loader cannot resolve classes from the optional {@code jdk.httpserver} module.
+ * A {@code java.net} implementation keeps the whole agent in a single class loader world.
+ * </p>
+ *
+ * <h3>Binding</h3>
+ * <p>
+ * The server binds to the loopback interface by default. Set {@code janf.management.host} or
+ * {@code JANF_MANAGEMENT_HOST} (e.g. {@code 0.0.0.0}) to bind elsewhere, for example inside a
+ * container.
+ * </p>
+ *
+ * <h3>Authentication</h3>
+ * <p>
+ * When {@code janf.management.token} / {@code JANF_MANAGEMENT_TOKEN} is set, every request must
+ * carry it in the {@code X-JANF-Token} header or as an {@code Authorization: Bearer <token>}
+ * header. Without a token only requests from loopback addresses are accepted.
  * </p>
  *
  * <h3>Available Endpoints</h3>
@@ -49,10 +71,33 @@ import java.util.concurrent.Executors;
  * </ul>
  */
 public final class ManagementServer {
-    private final HttpServer server;
+    /**
+     * Header carrying the management token.
+     */
+    private static final String TOKEN_HEADER = "X-JANF-Token";
+
+    /**
+     * Header carrying a bearer token.
+     */
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+
+    /**
+     * Read timeout for client connections, in milliseconds.
+     */
+    private static final int SOCKET_TIMEOUT_MILLIS = 10_000;
+
+    /**
+     * Maximum size of a request head (request line + headers) accepted from a client.
+     */
+    private static final int MAX_REQUEST_HEAD_BYTES = 8192;
+
+    private final ServerSocket serverSocket;
     private final Dispatcher dispatcher;
     private final PluginManager pluginManager;
-    private volatile boolean running = false;
+    private final String token;
+    private final AtomicBoolean running = new AtomicBoolean(false);
+    private volatile ExecutorService acceptExecutor;
+    private volatile Thread acceptThread;
 
     /**
      * Create a management HTTP server.
@@ -60,22 +105,33 @@ public final class ManagementServer {
      * @param port          the port to listen on (0 for random available port)
      * @param dispatcher    the class dispatcher for querying hooked classes
      * @param pluginManager the plugin manager for reloading plugins
-     * @throws IOException if the server cannot be created
+     * @throws IOException if the server socket cannot be created
      */
     public ManagementServer(int port, Dispatcher dispatcher, PluginManager pluginManager) throws IOException {
         this.dispatcher = dispatcher;
         this.pluginManager = pluginManager;
-        this.server = HttpServer.create(new InetSocketAddress(port), 0);
-        setupRoutes();
+        this.token = resolveToken();
+        this.serverSocket = new ServerSocket();
+        serverSocket.bind(new InetSocketAddress(resolveBindAddress(), port));
     }
 
-    /**
-     * Register HTTP handlers for all API endpoints.
-     */
-    private void setupRoutes() {
-        server.createContext("/status", this::handleStatus);
-        server.createContext("/reload", this::handleReload);
-        server.setExecutor(Executors.newFixedThreadPool(2));
+    private static String resolveToken() {
+        String value = System.getProperty("janf.management.token");
+        if (null == value || value.isEmpty()) {
+            value = System.getenv("JANF_MANAGEMENT_TOKEN");
+        }
+
+        return null == value || value.isEmpty() ? null : value;
+    }
+
+    private static InetAddress resolveBindAddress() throws UnknownHostException {
+        String host = System.getProperty("janf.management.host");
+        if (null == host || host.isEmpty()) {
+            host = System.getenv("JANF_MANAGEMENT_HOST");
+        }
+
+        // Loopback by default: the endpoints are not authenticated unless a token is configured.
+        return null == host || host.isEmpty() ? InetAddress.getLoopbackAddress() : InetAddress.getByName(host);
     }
 
     /**
@@ -83,21 +139,53 @@ public final class ManagementServer {
      * Once started, the server will accept incoming HTTP requests.
      */
     public void start() {
-        server.start();
-        running = true;
-        DebugInfo.info("Management server started on port: " + server.getAddress().getPort());
+        if (!running.compareAndSet(false, true)) {
+            return;
+        }
+
+        acceptExecutor = Executors.newFixedThreadPool(2, daemonThreadFactory("janf-management"));
+        acceptThread = new Thread(this::acceptLoop, "janf-management-accept");
+        acceptThread.setDaemon(true);
+        acceptThread.start();
+
+        DebugInfo.info("Management server started on port: " + getPort());
     }
 
     /**
      * Stop the management server gracefully.
-     * Waits up to 1 second for active requests to complete.
+     * Waits up to 1 second for the accept loop to terminate.
      */
     public void stop() {
-        if (running) {
-            server.stop(1);
-            running = false;
-            DebugInfo.info("Management server stopped");
+        if (!running.compareAndSet(true, false)) {
+            return;
         }
+
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            DebugInfo.debug("Can not close management server socket", e);
+        }
+
+        Thread thread = acceptThread;
+        if (null != thread) {
+            thread.interrupt();
+        }
+
+        ExecutorService executor = acceptExecutor;
+        if (null != executor) {
+            executor.shutdownNow();
+        }
+
+        DebugInfo.info("Management server stopped");
+    }
+
+    /**
+     * Get the address the server is bound to.
+     *
+     * @return the bound address
+     */
+    public InetAddress getBindAddress() {
+        return serverSocket.getInetAddress();
     }
 
     /**
@@ -106,7 +194,7 @@ public final class ManagementServer {
      * @return the port number
      */
     public int getPort() {
-        return server.getAddress().getPort();
+        return serverSocket.getLocalPort();
     }
 
     /**
@@ -115,7 +203,145 @@ public final class ManagementServer {
      * @return true if the server is running, false otherwise
      */
     public boolean isRunning() {
-        return running;
+        return running.get();
+    }
+
+    private void acceptLoop() {
+        while (running.get()) {
+            try {
+                Socket socket = serverSocket.accept();
+                ExecutorService executor = acceptExecutor;
+                if (null != executor && !executor.isShutdown()) {
+                    executor.execute(() -> handleConnection(socket));
+                } else {
+                    closeQuietly(socket);
+                }
+            } catch (SocketException e) {
+                if (running.get()) {
+                    DebugInfo.warn("Management server socket error: " + e.getMessage());
+                }
+                return;
+            } catch (IOException e) {
+                if (running.get()) {
+                    DebugInfo.error("Management server accept failed", e);
+                }
+            }
+        }
+    }
+
+    private void handleConnection(Socket socket) {
+        try (socket) {
+            socket.setSoTimeout(SOCKET_TIMEOUT_MILLIS);
+
+            Request request = readRequest(socket);
+            if (null == request) {
+                sendResponse(socket, 400, "text/plain; charset=UTF-8", "Bad request");
+                return;
+            }
+
+            if (!isAuthorized(socket, request)) {
+                DebugInfo.warn("Rejected management request from " + socket.getRemoteSocketAddress());
+                sendResponse(socket, 401, "text/plain; charset=UTF-8", "Unauthorized");
+                return;
+            }
+
+            route(request, socket);
+        } catch (SocketTimeoutException e) {
+            DebugInfo.debug("Management request timed out");
+        } catch (Throwable e) {
+            DebugInfo.debug("Management request failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Read and parse the request head (request line and headers).
+     *
+     * @param socket the client socket
+     * @return the parsed request, or {@code null} if the head is malformed
+     * @throws IOException if reading fails
+     */
+    private Request readRequest(Socket socket) throws IOException {
+        BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII), MAX_REQUEST_HEAD_BYTES);
+
+        String requestLine = reader.readLine();
+        if (null == requestLine || requestLine.isEmpty()) {
+            return null;
+        }
+
+        String[] parts = requestLine.split(" ");
+        if (3 != parts.length) {
+            return null;
+        }
+
+        Request request = new Request(parts[0], parts[1]);
+        int headBytes = requestLine.length() + 2;
+        String line;
+        while (null != (line = reader.readLine()) && !line.isEmpty()) {
+            headBytes += line.length() + 2;
+            if (headBytes > MAX_REQUEST_HEAD_BYTES) {
+                return null;
+            }
+
+            int colon = line.indexOf(':');
+            if (colon > 0) {
+                request.headers.put(line.substring(0, colon).trim(), line.substring(colon + 1).trim());
+            }
+        }
+
+        return request;
+    }
+
+    /**
+     * Check whether a request may access the management API.
+     * <p>
+     * A token (if configured) takes precedence; without a token only loopback clients are
+     * allowed, matching the security model of the agent.
+     * </p>
+     *
+     * @param socket  the client socket, used to resolve the remote address
+     * @param request the parsed request
+     * @return true if the caller is allowed
+     */
+    private boolean isAuthorized(Socket socket, Request request) {
+        if (null != token) {
+            String provided = request.header(TOKEN_HEADER);
+            if (null == provided) {
+                String authorization = request.header(AUTHORIZATION_HEADER);
+                if (null != authorization && authorization.startsWith("Bearer ")) {
+                    provided = authorization.substring("Bearer ".length()).trim();
+                }
+            }
+
+            return token.equals(provided);
+        }
+
+        InetAddress remote = socket.getInetAddress();
+
+        return null != remote && remote.isLoopbackAddress();
+    }
+
+    private void route(Request request, Socket socket) throws IOException {
+        if ("/status".equals(request.path)) {
+            if (!"GET".equalsIgnoreCase(request.method)) {
+                sendResponse(socket, 405, "text/plain; charset=UTF-8", "Method not allowed");
+                return;
+            }
+
+            handleStatus(socket);
+            return;
+        }
+
+        if ("/reload".equals(request.path)) {
+            if (!"POST".equalsIgnoreCase(request.method)) {
+                sendResponse(socket, 405, "text/plain; charset=UTF-8", "Method not allowed");
+                return;
+            }
+
+            handleReload(socket);
+            return;
+        }
+
+        sendResponse(socket, 404, "text/plain; charset=UTF-8", "Not found");
     }
 
     /**
@@ -123,15 +349,10 @@ public final class ManagementServer {
      * Returns a JSON object with agent version, application name,
      * number of hooked classes, and number of loaded plugins.
      *
-     * @param exchange the HTTP exchange
+     * @param socket the client socket
      * @throws IOException if an I/O error occurs
      */
-    private void handleStatus(HttpExchange exchange) throws IOException {
-        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-            sendResponse(exchange, 405, "Method not allowed");
-            return;
-        }
-
+    private void handleStatus(Socket socket) throws IOException {
         String json = String.format(
                 "{\"status\":\"running\",\"version\":\"%s\",\"appName\":\"%s\",\"hookedClasses\":%d,\"pluginsLoaded\":%d}",
                 BuildVersion.getVersion(),
@@ -139,74 +360,135 @@ public final class ManagementServer {
                 dispatcher.getHookClassNames().size(),
                 pluginManager.getLoadedPlugins().size()
         );
-        sendJsonResponse(exchange, json);
+        sendResponse(socket, 200, "application/json; charset=UTF-8", json);
     }
 
     /**
      * Handle POST /reload requests.
      * Triggers a reload of all plugins from the plugins directory.
      *
-     * @param exchange the HTTP exchange
+     * @param socket the client socket
      * @throws IOException if an I/O error occurs
      */
-    private void handleReload(HttpExchange exchange) throws IOException {
-        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-            sendResponse(exchange, 405, "Method not allowed");
-            return;
-        }
-
+    private void handleReload(Socket socket) throws IOException {
         try {
-            pluginManager.loadPlugins();
-            String json = "{\"status\":\"ok\",\"message\":\"Plugins reloaded\"}";
-            sendJsonResponse(exchange, json);
+            pluginManager.reloadPlugins();
+            sendResponse(socket, 200, "application/json; charset=UTF-8", "{\"status\":\"ok\",\"message\":\"Plugins reloaded\"}");
         } catch (Exception e) {
             DebugInfo.error("Plugin reload failed", e);
-            String json = "{\"status\":\"error\",\"message\":\"" + e.getMessage() + "\"}";
-            sendJsonResponse(exchange, 500, json);
+            sendResponse(socket, 500, "application/json; charset=UTF-8",
+                    "{\"status\":\"error\",\"message\":\"" + escapeJson(e.getMessage()) + "\"}");
         }
     }
 
     /**
-     * Send a 200 OK JSON response.
+     * Send an HTTP/1.1 response and close the connection.
      *
-     * @param exchange the HTTP exchange
-     * @param json     the JSON response body
+     * @param socket     the client socket
+     * @param statusCode the HTTP status code
+     * @param contentType the Content-Type header value
+     * @param body       the response body
      * @throws IOException if an I/O error occurs
      */
-    private void sendJsonResponse(HttpExchange exchange, String json) throws IOException {
-        sendJsonResponse(exchange, 200, json);
+    private static void sendResponse(Socket socket, int statusCode, String contentType, String body) throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        String reason = switch (statusCode) {
+            case 200 -> "OK";
+            case 400 -> "Bad Request";
+            case 401 -> "Unauthorized";
+            case 404 -> "Not Found";
+            case 405 -> "Method Not Allowed";
+            case 500 -> "Internal Server Error";
+            default -> "Unknown";
+        };
+
+        String head = "HTTP/1.1 " + statusCode + " " + reason + "\r\n"
+                + "Content-Type: " + contentType + "\r\n"
+                + "Content-Length: " + bytes.length + "\r\n"
+                + "Connection: close\r\n"
+                + "\r\n";
+
+        OutputStream os = socket.getOutputStream();
+        os.write(head.getBytes(StandardCharsets.US_ASCII));
+        os.write(bytes);
+        os.flush();
     }
 
     /**
-     * Send a JSON response with the specified status code.
+     * Escape a value so it can be embedded into a JSON string literal.
      *
-     * @param exchange   the HTTP exchange
-     * @param statusCode the HTTP status code
-     * @param json       the JSON response body
-     * @throws IOException if an I/O error occurs
+     * @param value the raw value, may be {@code null}
+     * @return the escaped value, never {@code null}
      */
-    private void sendJsonResponse(HttpExchange exchange, int statusCode, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(statusCode, bytes.length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(bytes);
+    private static String escapeJson(String value) {
+        if (null == value) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder(value.length() + 16);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '"':
+                    builder.append("\\\"");
+                    break;
+                case '\\':
+                    builder.append("\\\\");
+                    break;
+                case '\n':
+                    builder.append("\\n");
+                    break;
+                case '\r':
+                    builder.append("\\r");
+                    break;
+                case '\t':
+                    builder.append("\\t");
+                    break;
+                default:
+                    if (c < 0x20) {
+                        builder.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        builder.append(c);
+                    }
+                    break;
+            }
+        }
+
+        return builder.toString();
+    }
+
+    private static void closeQuietly(Socket socket) {
+        try {
+            socket.close();
+        } catch (IOException e) {
+            DebugInfo.debug("Can not close management connection: " + e.getMessage());
         }
     }
 
+    private static ThreadFactory daemonThreadFactory(String name) {
+        return runnable -> {
+            Thread thread = new Thread(runnable, name);
+            thread.setDaemon(true);
+
+            return thread;
+        };
+    }
+
     /**
-     * Send a plain text response with the specified status code.
-     *
-     * @param exchange   the HTTP exchange
-     * @param statusCode the HTTP status code
-     * @param message    the response body
-     * @throws IOException if an I/O error occurs
+     * A parsed HTTP request head.
      */
-    private void sendResponse(HttpExchange exchange, int statusCode, String message) throws IOException {
-        byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
-        exchange.sendResponseHeaders(statusCode, bytes.length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(bytes);
+    private static final class Request {
+        private final String method;
+        private final String path;
+        private final java.util.Map<String, String> headers = new java.util.HashMap<>();
+
+        Request(String method, String path) {
+            this.method = method;
+            this.path = path;
+        }
+
+        String header(String name) {
+            return headers.get(name);
         }
     }
 }

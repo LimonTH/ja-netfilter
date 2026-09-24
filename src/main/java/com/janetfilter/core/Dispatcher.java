@@ -33,10 +33,15 @@ import java.util.*;
  */
 public final class Dispatcher implements ClassFileTransformer {
     private final Environment environment;
-    private final Set<String> classSet = new TreeSet<>();
-    private final Map<String, List<MyTransformer>> transformerMap = new HashMap<>();
-    private final List<MyTransformer> globalTransformers = new ArrayList<>();
-    private final List<MyTransformer> manageTransformers = new ArrayList<>();
+
+    /**
+     * Immutable-by-convention snapshot of the registered transformers, published atomically.
+     * <p>
+     * {@link #transform} reads the snapshot exactly once, so a plugin reload (which replaces
+     * the snapshot) can never be observed half-applied.
+     * </p>
+     */
+    private volatile State state = new State();
 
     /**
      * Create a new dispatcher.
@@ -45,6 +50,17 @@ public final class Dispatcher implements ClassFileTransformer {
      */
     public Dispatcher(Environment environment) {
         this.environment = environment;
+    }
+
+    /**
+     * Remove every registered transformer.
+     * <p>
+     * Used before a plugin reload. Already loaded classes have to be retransformed afterwards,
+     * because retransformation restarts from the original class file bytes.
+     * </p>
+     */
+    public synchronized void reset() {
+        state = new State();
     }
 
     /**
@@ -68,21 +84,20 @@ public final class Dispatcher implements ClassFileTransformer {
         }
 
         synchronized (this) {
+            State next = state.copy();
             String className = transformer.getHookClassName();
             if (null == className) {
-                globalTransformers.add(transformer);
+                next.globalTransformers.add(transformer);
 
                 if (transformer.isManager()) {
-                    manageTransformers.add(transformer);
+                    next.manageTransformers.add(transformer);
                 }
-
-                return;
+            } else {
+                next.classSet.add(className.replace('/', '.'));
+                next.transformerMap.computeIfAbsent(className, k -> new ArrayList<>()).add(transformer);
             }
 
-            classSet.add(className.replace('/', '.'));
-            List<MyTransformer> transformers = transformerMap.computeIfAbsent(className, k -> new ArrayList<>());
-
-            transformers.add(transformer);
+            state = next;
         }
     }
 
@@ -117,10 +132,10 @@ public final class Dispatcher implements ClassFileTransformer {
     /**
      * Get the set of hooked class names.
      *
-     * @return set of class names
+     * @return unmodifiable set of class names
      */
     public Set<String> getHookClassNames() {
-        return classSet;
+        return Collections.unmodifiableSet(state.classSet);
     }
 
     /**
@@ -139,8 +154,10 @@ public final class Dispatcher implements ClassFileTransformer {
             return classFileBuffer;
         }
 
-        List<MyTransformer> transformers = transformerMap.get(className);
-        List<MyTransformer> globalTransformers = null == transformers ? this.manageTransformers : this.globalTransformers;
+        // Read the snapshot once so a concurrent reload cannot be observed partially.
+        State current = state;
+        List<MyTransformer> transformers = current.transformerMap.get(className);
+        List<MyTransformer> globalTransformers = null == transformers ? current.manageTransformers : current.globalTransformers;
 
         int order = 0;
 
@@ -150,26 +167,69 @@ public final class Dispatcher implements ClassFileTransformer {
             }
 
             for (MyTransformer transformer : globalTransformers) {
-                classFileBuffer = transformer.preTransform(loader, classBeingRedefined, protectionDomain, className, classFileBuffer, order++);
+                classFileBuffer = apply(transformer.preTransform(loader, classBeingRedefined, protectionDomain, className, classFileBuffer, order++), classFileBuffer);
             }
 
             if (null != transformers) {
                 for (MyTransformer transformer : transformers) {
-                    classFileBuffer = transformer.transform(loader, classBeingRedefined, protectionDomain, className, classFileBuffer, order++);
+                    classFileBuffer = apply(transformer.transform(loader, classBeingRedefined, protectionDomain, className, classFileBuffer, order++), classFileBuffer);
                 }
             }
 
             for (MyTransformer transformer : globalTransformers) {
-                classFileBuffer = transformer.postTransform(loader, classBeingRedefined, protectionDomain, className, classFileBuffer, order++);
-            }
-
-            for (MyTransformer transformer : globalTransformers) {
-                transformer.after(loader, classBeingRedefined, protectionDomain, className, classFileBuffer);
+                classFileBuffer = apply(transformer.postTransform(loader, classBeingRedefined, protectionDomain, className, classFileBuffer, order++), classFileBuffer);
             }
         } catch (Throwable e) {
             DebugInfo.error("Transform class failed: " + className, e);
         }
 
+        // `after()` always runs, even when the transformation failed, so that global
+        // transformers cannot leak per-class state for classes they failed on.
+        try {
+            for (MyTransformer transformer : globalTransformers) {
+                transformer.after(loader, classBeingRedefined, protectionDomain, className, classFileBuffer);
+            }
+        } catch (Throwable e) {
+            DebugInfo.error("After transform failed: " + className, e);
+        }
+
         return classFileBuffer;
+    }
+
+    /**
+     * A {@code null} result means "no transformation" per the {@link ClassFileTransformer}
+     * contract, so the previous buffer is kept instead of propagating {@code null} to the
+     * next transformer.
+     *
+     * @param transformed the buffer returned by a transformer (may be null)
+     * @param previous    the buffer to fall back to
+     * @return the buffer to use from now on
+     */
+    private static byte[] apply(byte[] transformed, byte[] previous) {
+        return null == transformed ? previous : transformed;
+    }
+
+    /**
+     * Snapshot of the registered transformers.
+     * <p>
+     * Instances are never mutated after being published through {@link Dispatcher#state}.
+     * Mutations are performed on a private copy that is published atomically.
+     * </p>
+     */
+    private static final class State {
+        private final Set<String> classSet = new TreeSet<>();
+        private final Map<String, List<MyTransformer>> transformerMap = new HashMap<>();
+        private final List<MyTransformer> globalTransformers = new ArrayList<>();
+        private final List<MyTransformer> manageTransformers = new ArrayList<>();
+
+        private State copy() {
+            State copy = new State();
+            copy.classSet.addAll(classSet);
+            transformerMap.forEach((key, value) -> copy.transformerMap.put(key, new ArrayList<>(value)));
+            copy.globalTransformers.addAll(globalTransformers);
+            copy.manageTransformers.addAll(manageTransformers);
+
+            return copy;
+        }
     }
 }

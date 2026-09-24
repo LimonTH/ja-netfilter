@@ -20,31 +20,39 @@
 
 package com.janetfilter.core.utils;
 
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 
 /**
  * Date and time formatting utilities.
+ * <p>
+ * All formatters are immutable and therefore safe to share between threads, which matters
+ * because log messages are written from several background threads.
+ * </p>
  */
 public class DateUtils {
     /**
      * Full date-time format.
      */
-    public static final DateFormat FULL_DF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    public static final DateTimeFormatter FULL_DF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     /**
-     * Full date-time format with microseconds.
+     * Full date-time format with millisecond precision.
      */
-    public static final DateFormat FULL_MICRO_DF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    public static final DateTimeFormatter FULL_MICRO_DF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     /**
      * Date-only format.
      */
-    public static final DateFormat DATE_DF = new SimpleDateFormat("yyyy-MM-dd");
+    public static final DateTimeFormatter DATE_DF = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     /**
      * Time-only format.
      */
-    public static final DateFormat TIME_DF = new SimpleDateFormat("HH:mm:ss");
+    public static final DateTimeFormatter TIME_DF = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     /**
      * Format a date and time.
@@ -53,7 +61,7 @@ public class DateUtils {
      * @return formatted date string
      */
     public static String formatDateTime(Date date) {
-        return FULL_DF.format(date);
+        return FULL_DF.format(toLocalDateTime(date));
     }
 
     /**
@@ -66,17 +74,17 @@ public class DateUtils {
     }
 
     /**
-     * Format a date and time with microseconds.
+     * Format a date and time with millisecond precision.
      *
      * @param date the date to format
      * @return formatted date string
      */
     public static String formatDateTimeMicro(Date date) {
-        return FULL_MICRO_DF.format(date);
+        return FULL_MICRO_DF.format(toLocalDateTime(date));
     }
 
     /**
-     * Format the current date and time with microseconds.
+     * Format the current date and time with millisecond precision.
      *
      * @return formatted date string
      */
@@ -91,7 +99,7 @@ public class DateUtils {
      * @return formatted date string
      */
     public static String formatDate(Date date) {
-        return DATE_DF.format(date);
+        return DATE_DF.format(toLocalDateTime(date).toLocalDate());
     }
 
     /**
@@ -110,7 +118,7 @@ public class DateUtils {
      * @return formatted time string
      */
     public static String formatTime(Date date) {
-        return TIME_DF.format(date);
+        return TIME_DF.format(toLocalDateTime(date).toLocalTime());
     }
 
     /**
@@ -121,7 +129,11 @@ public class DateUtils {
      * @throws ParseException if parsing fails
      */
     public static Date parseTime(String timeStr) throws ParseException {
-        return TIME_DF.parse(timeStr);
+        try {
+            return toDate(LocalTime.parse(timeStr, TIME_DF));
+        } catch (DateTimeParseException e) {
+            throw toParseException(timeStr, e);
+        }
     }
 
     /**
@@ -132,7 +144,11 @@ public class DateUtils {
      * @throws ParseException if parsing fails
      */
     public static Date parseDate(String dateStr) throws ParseException {
-        return DATE_DF.parse(dateStr);
+        try {
+            return toDate(LocalDate.parse(dateStr, DATE_DF));
+        } catch (DateTimeParseException e) {
+            throw toParseException(dateStr, e);
+        }
     }
 
     /**
@@ -143,6 +159,33 @@ public class DateUtils {
      * @throws ParseException if parsing fails
      */
     public static Date parseDateTime(String dateTimeStr) throws ParseException {
-        return FULL_DF.parse(dateTimeStr);
+        try {
+            return toDate(LocalDateTime.parse(dateTimeStr, FULL_DF));
+        } catch (DateTimeParseException e) {
+            throw toParseException(dateTimeStr, e);
+        }
+    }
+
+    private static LocalDateTime toLocalDateTime(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+
+    private static Date toDate(LocalDateTime dateTime) {
+        return Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
+    }
+
+    private static Date toDate(LocalDate date) {
+        return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+    }
+
+    private static Date toDate(LocalTime time) {
+        return Date.from(time.atDate(LocalDate.now()).atZone(ZoneId.systemDefault()).toInstant());
+    }
+
+    private static ParseException toParseException(String value, DateTimeParseException cause) {
+        ParseException exception = new ParseException("Unparseable date: \"" + value + "\"", cause.getErrorIndex());
+        exception.initCause(cause);
+
+        return exception;
     }
 }

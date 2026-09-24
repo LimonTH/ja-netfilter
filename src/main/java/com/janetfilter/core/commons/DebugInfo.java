@@ -32,6 +32,7 @@ import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Debug and logging utility for console and file output.
@@ -60,6 +61,12 @@ public class DebugInfo {
     private static final String PID = ProcessUtils.currentId();
     private static final Level LOG_LEVEL;
     private static final Long LOG_OUTPUT;
+
+    /**
+     * Maximum time to wait for pending log messages to be flushed on JVM shutdown.
+     */
+    private static final long FLUSH_TIMEOUT_MILLIS = 2000L;
+
     private static File logDir;
 
     static {
@@ -71,6 +78,33 @@ public class DebugInfo {
             output = StringUtils.toLong(System.getenv("JANF_OUTPUT"));
         }
         LOG_OUTPUT = null == output ? OUTPUT_CONSOLE : output;
+
+        // Logging is asynchronous on daemon threads, so a JVM that exits quickly would
+        // otherwise drop already queued messages. Drain the queues on shutdown.
+        Runtime.getRuntime().addShutdownHook(new Thread(DebugInfo::flush, "janf-logger-flush"));
+    }
+
+    /**
+     * Flush pending log messages and shut the logging executors down.
+     * <p>
+     * Registered as a JVM shutdown hook, and also safe to call explicitly by tests.
+     * </p>
+     */
+    public static void flush() {
+        awaitTermination(CONSOLE_EXECUTOR);
+        awaitTermination(FILE_EXECUTOR);
+    }
+
+    private static void awaitTermination(ExecutorService executor) {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(FLUSH_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static ThreadFactory daemonThreadFactory(String name) {

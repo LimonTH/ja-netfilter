@@ -33,9 +33,9 @@ import java.util.Map;
  */
 public final class PluginHotReloader {
     private final PluginManager pluginManager;
-    private final Instrumentation instrumentation;
     private final Map<WatchKey, Path> keys = new HashMap<>();
     private volatile boolean running = false;
+    private volatile Thread reloadThread = null;
 
     /**
      * Create a plugin hot reloader.
@@ -45,7 +45,6 @@ public final class PluginHotReloader {
      */
     public PluginHotReloader(PluginManager pluginManager, Instrumentation instrumentation) {
         this.pluginManager = pluginManager;
-        this.instrumentation = instrumentation;
     }
 
     /**
@@ -60,7 +59,7 @@ public final class PluginHotReloader {
         }
 
         running = true;
-        Thread reloadThread = new Thread(() -> {
+        Thread watcher = new Thread(() -> {
             try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
                 Path pluginsPath = pluginsDir.toPath();
                 WatchKey key = pluginsPath.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY);
@@ -98,24 +97,35 @@ public final class PluginHotReloader {
             }
         }, "PluginHotReloader");
 
-        reloadThread.setDaemon(true);
-        reloadThread.start();
+        watcher.setDaemon(true);
+        reloadThread = watcher;
+        watcher.start();
     }
 
     /**
      * Stop the hot reload watcher.
+     * <p>
+     * The watcher thread blocks on {@link WatchService#take()} and is interrupted so that it
+     * terminates immediately instead of waiting for the next file system event.
+     * </p>
      */
     public void stop() {
         running = false;
+
+        Thread watcher = reloadThread;
+        if (null != watcher) {
+            watcher.interrupt();
+        }
+
         DebugInfo.info("Hot reload watcher stopped");
     }
 
     /**
      * Reload all plugins.
      */
-    private synchronized void reloadPlugins() {
+    private void reloadPlugins() {
         try {
-            pluginManager.loadPlugins();
+            pluginManager.reloadPlugins();
             DebugInfo.info("Plugins reloaded successfully");
         } catch (Exception e) {
             DebugInfo.error("Failed to reload plugins", e);

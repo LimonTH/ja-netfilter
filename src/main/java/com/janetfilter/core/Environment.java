@@ -67,15 +67,21 @@ public final class Environment {
     public Environment(Instrumentation instrumentation, File agentFile, String app, boolean attachMode) {
         this.instrumentation = instrumentation;
         this.agentFile = agentFile;
-        baseDir = agentFile.getParentFile();
 
-        if (StringUtils.isEmpty(app)) {
+        // A relative agent path (for example `ja-netfilter.jar`) has no parent; fall back to the
+        // working directory instead of passing null into File(File, String).
+        File parent = agentFile.getParentFile();
+        baseDir = null == parent ? new File(System.getProperty("user.dir", ".")) : parent;
+
+        // A blank app name must not produce directories like `config-  `.
+        String trimmedApp = null == app ? "" : app.trim();
+        if (trimmedApp.isEmpty()) {
             appName = "";
             configDir = new File(baseDir, "config");
             pluginsDir = new File(baseDir, "plugins");
             logsDir = new File(baseDir, "logs");
         } else {
-            appName = app.toLowerCase();
+            appName = trimmedApp.toLowerCase();
             configDir = new File(baseDir, "config-" + appName);
             pluginsDir = new File(baseDir, "plugins-" + appName);
             logsDir = new File(baseDir, "logs-" + appName);
