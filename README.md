@@ -1,10 +1,10 @@
-# class-inspector
+# ja-netfilter
 
-**Version:** 1.0.0  
+**Version:** 2026.1.5 
 **Author:** LimonTH  
 **License:** GNU General Public License v3.0
 
-class-inspector is an educational Java agent for studying bytecode instrumentation and runtime class transformation. It demonstrates how to hook into class loading, modify bytecode dynamically, and build a plugin-based transformation pipeline.
+ja-netfilter is an educational Java agent for studying bytecode instrumentation and runtime class transformation. It demonstrates how to hook into class loading, modify bytecode dynamically, and build a plugin-based transformation pipeline.
 
 ## Features
 
@@ -39,13 +39,13 @@ The agent JAR will be created in `build/libs/` directory.
 #### As Java Agent
 
 ```bash
-java -javaagent:class-inspector.jar -jar your-application.jar
+java -javaagent:ja-netfilter.jar -jar your-application.jar
 ```
 
 #### Attach to Running JVM (Interactive)
 
 ```bash
-java -jar class-inspector.jar
+java -jar ja-netfilter.jar
 ```
 
 This will display a list of running JVMs and allow you to select one to attach to.
@@ -53,22 +53,22 @@ This will display a list of running JVMs and allow you to select one to attach t
 #### Attach to Running JVM (Non-interactive)
 
 ```bash
-java -jar class-inspector.jar --attach <pid>
+java -jar ja-netfilter.jar --attach <pid>
 # or simply
-java -jar class-inspector.jar <pid>
+java -jar ja-netfilter.jar <pid>
 ```
 
 #### Command Line Options
 
-| Option | Description |
-|--------|-------------|
-| `--version`, `-v` | Display version information |
-| `--attach <pid>` | Attach to a specific JVM process by PID |
-| `<pid>` | Attach to a specific JVM process by PID (shorthand) |
+| Option            | Description                                         |
+|-------------------|-----------------------------------------------------|
+| `--version`, `-v` | Display version information                         |
+| `--attach <pid>`  | Attach to a specific JVM process by PID             |
+| `<pid>`           | Attach to a specific JVM process by PID (shorthand) |
 
 ## Configuration
 
-class-inspector uses a configuration file-based system for defining filtering rules.
+ja-netfilter uses a configuration file-based system for defining filtering rules.
 
 ### Configuration File Format
 
@@ -83,17 +83,17 @@ REGEXP,^.*\.test\..*$
 
 ### Rule Types
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `PREFIX` | Case-sensitive prefix matching | `PREFIX,com.example.` |
-| `PREFIX_IC` | Case-insensitive prefix matching | `PREFIX_IC,com.example.` |
-| `SUFFIX` | Case-sensitive suffix matching | `SUFFIX,.class` |
-| `SUFFIX_IC` | Case-insensitive suffix matching | `SUFFIX_IC,.class` |
-| `KEYWORD` | Case-sensitive keyword matching | `KEYWORD,important` |
-| `KEYWORD_IC` | Case-insensitive keyword matching | `KEYWORD_IC,important` |
-| `EQUAL` | Case-sensitive exact match | `EQUAL,com.example.MyClass` |
-| `EQUAL_IC` | Case-insensitive exact match | `EQUAL_IC,com.example.MyClass` |
-| `REGEXP` | Regular expression match | `REGEXP,^com\.example\..*` |
+| Type         | Description                       | Example                        |
+|--------------|-----------------------------------|--------------------------------|
+| `PREFIX`     | Case-sensitive prefix matching    | `PREFIX,com.example.`          |
+| `PREFIX_IC`  | Case-insensitive prefix matching  | `PREFIX_IC,com.example.`       |
+| `SUFFIX`     | Case-sensitive suffix matching    | `SUFFIX,.class`                |
+| `SUFFIX_IC`  | Case-insensitive suffix matching  | `SUFFIX_IC,.class`             |
+| `KEYWORD`    | Case-sensitive keyword matching   | `KEYWORD,important`            |
+| `KEYWORD_IC` | Case-insensitive keyword matching | `KEYWORD_IC,important`         |
+| `EQUAL`      | Case-sensitive exact match        | `EQUAL,com.example.MyClass`    |
+| `EQUAL_IC`   | Case-insensitive exact match      | `EQUAL_IC,com.example.MyClass` |
+| `REGEXP`     | Regular expression match          | `REGEXP,^com\.example\..*`     |
 
 ### Encrypted Configuration
 
@@ -103,12 +103,12 @@ Configuration files can be encrypted with AES-128. To use encrypted configs:
    ```bash
    export JANF_CONFIG_KEY=your-secret-key
    # or
-   java -Djanf.config.key=your-secret-key -jar class-inspector.jar
+   java -Djanf.config.key=your-secret-key -jar ja-netfilter.jar
    ```
 
 2. Encrypt your config file (the content must start with `[section]` format):
    ```bash
-   java -cp class-inspector.jar com.janetfilter.core.commons.ConfigCipher
+   java -cp ja-netfilter.jar com.janetfilter.core.commons.ConfigCipher
    ```
    Then prepend `ENC:` to the encrypted output and save it as your `.conf` file.
 
@@ -121,15 +121,15 @@ Start the management HTTP server by setting the port:
 ```bash
 export JANF_MANAGEMENT_PORT=8080
 # or
-java -Djanf.management.port=8080 -jar class-inspector.jar
+java -Djanf.management.port=8080 -jar ja-netfilter.jar
 ```
 
 ### Available Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/status` | Agent status (version, hooked classes, loaded plugins) |
-| `POST` | `/reload` | Reload all plugins |
+| Method | Path      | Description                                            |
+|--------|-----------|--------------------------------------------------------|
+| `GET`  | `/status` | Agent status (version, hooked classes, loaded plugins) |
+| `POST` | `/reload` | Reload all plugins                                     |
 
 Example:
 ```bash
@@ -226,7 +226,7 @@ For **global transformers** (where `getHookClassName()` returns `null`), you can
 ## Directory Structure
 
 ```
-class-inspector/
+ja-netfilter/
 ├── config/              # Configuration files
 ├── config-<app>/        # App-specific configurations
 ├── plugins/             # Plugin JAR files
@@ -249,7 +249,7 @@ export JANF_OUTPUT=7
 
 Or as JVM arguments:
 ```bash
-java -Djanf.debug=1 -Djanf.output=7 -javaagent:class-inspector.jar
+java -Djanf.debug=1 -Djanf.output=7 -javaagent:ja-netfilter.jar
 ```
 
 ## Architecture
@@ -299,8 +299,8 @@ Start the management server with `-Djanf.management.port=<port>` or `JANF_MANAGE
 Build and run with Docker:
 
 ```bash
-docker build -t class-inspector .
-docker run -it --rm class-inspector
+docker build -t ja-netfilter .
+docker run -it --rm ja-netfilter
 ```
 
 ## Common Issues
